@@ -26,7 +26,7 @@
                     ],
                 }, {
                     'defines': [
-                        '_GNU_SOURCE', 'LINUX', 'SERVER', 'ENABLE_DMLOG', '_LINUX'
+                        '_GNU_SOURCE', 'LINUX', 'SERVER', 'ENABLE_DMLOG', '_LINUX_'
                     ],
                 }
             ]
@@ -57,7 +57,7 @@
                     }
                 }, {
                     'defines': [
-                        '_GNU_SOURCE', 'LINUX', 'SERVER', 'ENABLE_DMLOG', '_LINUX'
+                        '_GNU_SOURCE', 'LINUX', 'SERVER', 'ENABLE_DMLOG', '_LINUX_'
                     ],
                     'link_settings': {
                         'libraries': [

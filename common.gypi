@@ -2,6 +2,7 @@
   'variables': {
     'library%': 'static_library',    # allow override to 'shared_library' for DLL/.so builds
     'gcc_version%': 'unknown',
+    'target_arch%': 'x86',
     'clang%': 0,
     'python%': 'python',
   },
@@ -141,7 +142,7 @@
           }],
         ],
         'conditions': [
-          [ 'target_arch=="ia32"', {
+          [ 'target_arch=="x86"', {
             'cflags': [ '-m32' ],
             'ldflags': [ '-m32' ],
           }],
@@ -187,7 +188,7 @@
           }],
         ],
         'conditions': [
-          ['target_arch=="ia32"', {
+          ['target_arch=="x86"', {
             'xcode_settings': {'ARCHS': ['i386']},
           }],
           ['target_arch=="x64"', {

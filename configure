@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+import optparse
+import sys
+import os
+import subprocess
+
+root_dir = os.path.dirname(__file__)
+
+parser = optparse.OptionParser()
+
+parser.add_option("--format",
+    action="store",
+    dest="format",
+    help="Build system you prefer to use. Valid values are: "
+         "msvs, make, xcode, ninja-*")
+             
+(options, args) = parser.parse_args()
+gyp_args = [sys.executable, 'tools/generator.py', '--no-parallel']
+gyp_args += ['-f', options.format]
+gyp_args += args
+
+subprocess.call(gyp_args)

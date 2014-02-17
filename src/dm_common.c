@@ -162,7 +162,7 @@ FILE *g_hLogFile = NULL;
 
 void InitLog(const char* lpszPath)
 {
-#if !defined(ENABLE_P2PLOG)
+#if !defined(ENABLE_DMLOG)
 	return;
 #else
 	InitLock(&g_LockLog);
@@ -175,7 +175,7 @@ void InitLog(const char* lpszPath)
 
 void UnInitLog()
 {
-#if !defined ENABLE_P2PLOG
+#if !defined ENABLE_DMLOG
 	return;
 #else
 	if(g_hLogFile != NULL)
@@ -186,7 +186,7 @@ void UnInitLog()
 	UnInitLock(&g_LockLog);
 #endif
 }
-#if defined ENABLE_P2PLOG && !defined (ANDROID) && !defined (__IPHONE__)
+#if defined ENABLE_DMLOG && !defined (ANDROID) && !defined (__IPHONE__)
 void logMessage(int level, const char *format, ...)
 {
 	va_list ap;

@@ -2,3 +2,5 @@
 *.suo
 *.sdf
 *.vcxproj*
+Debug
+Release

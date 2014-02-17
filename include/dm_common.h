@@ -146,7 +146,7 @@ enum
 
 void InitLog(const char* lpszPath);
 void UnInitLog();
-#if defined ENABLE_P2PLOG
+#if defined ENABLE_DMLOG
 	#if defined ANDROID && defined ENABLE_ANDROIDLOG
 		#include <utils/Log.h>
 		#define logDebug ANDROID_LOG_DEBUG

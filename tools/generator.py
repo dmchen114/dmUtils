@@ -18,6 +18,14 @@ def run_gyp(args):
 if __name__ == '__main__':
     args = sys.argv[1:]
     args.append(os.path.join(os.path.abspath(root_dir), 'building/dmUtils.gyp'))
+    common_fn  = os.path.join(os.path.abspath(root_dir), 'common.gypi')
+    options_fn = os.path.join(os.path.abspath(root_dir), 'config.gypi')
+
+    if os.path.exists(common_fn):
+        args.extend(['-I', common_fn])
+    if os.path.exists(options_fn):
+        args.extend(['-I', options_fn])
+    
     args.extend(['--depth='+root_dir])
     if sys.platform != 'win32' and 'ninja' not in args:
         # Tell make to write its output into the same dir

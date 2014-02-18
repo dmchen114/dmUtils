@@ -3,3 +3,4 @@
 *.sdf
 *.vcxproj*
 Makefile*
+config.gypi

@@ -2,7 +2,6 @@
     'variables': {
     },
     'includes': [
-      '../common.gypi',
     ],
     'target_defaults': {
     },

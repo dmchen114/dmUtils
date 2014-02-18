@@ -15,6 +15,12 @@ parser.add_option("--format",
     dest="format",
     help="Build system you prefer to use. Valid values are: "
          "msvs, make, xcode, ninja-*")
+
+parser.add_option("--debug",
+    action="store_true",
+    dest="default_config",
+    help="Default configuration is DEBUG mode.")
+
              
 (options, args) = parser.parse_args()
 
@@ -35,9 +41,12 @@ def configure_variables(o):
         o['variables']['target_arch'] = "x64"
     else:
         o['variables']['target_arch'] = "x86"
-    
+    if(options.default_config):
+       o['target_defaults']['default_configuration'] = "Debug"
+      
 output = {
   'variables': { 'python': sys.executable },
+  'target_defaults': {},
   'include_dirs': [],
   'libraries': [],
   'defines': [],

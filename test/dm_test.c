@@ -27,7 +27,7 @@ int dmTestRunCase(any_t userData, char *key, any_t value)
 
 int dmDeleteData(any_t userData, char *key, any_t value)
 {
-    free(value);
+    free((CASE_DATA*)value);
     return MAP_OK;
 }
 
@@ -55,8 +55,10 @@ void dmRunTests(int argc, char **argv)
     }
     printf("\r\n_________________________________\r\n");
     printf("%d case(s) run, %d case(s) failed.\r\n", g_results.nRunned, g_results.nFailed);
+#ifdef WIN32
     printf("Press any key to exit...\r\n");
     getchar();
+#endif
     hashmap_iterate(g_cases, dmDeleteData, NULL);
     hashmap_free(g_cases);
 

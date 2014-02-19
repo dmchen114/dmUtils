@@ -25,7 +25,7 @@ void OK(bool condition, char* description);
 void colorPrintf(int color, const char* s);
 
 #define DECLARE_TESTCASE(x) \
-    do{ extern void test_##x(); \
+    do{ extern int test_##x(); \
     dmRegisterCase(#x, test_##x); }while(0); \
 
 

@@ -102,7 +102,7 @@ int P2PInit()
 #else
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
+		//pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
 		if(pthread_create(&g_hThread, &attr, serv_epoll, NULL) != 0)
 		{
 			logMessage(logError, "Create network thread failed.");
@@ -124,6 +124,7 @@ void JoinNetThread()
 	WaitForSingleObject(g_hThread, INFINITE);
 #else
 	pthread_join(g_hThread, NULL);
+    logMessage(logInfo, "pthread join 0x%x", g_hThread);
 #endif
 }
 
@@ -162,7 +163,7 @@ void P2PUnInit()
 			g_epoll_fd = 0;
 		}
 #endif
-		logMessage(logInfo, "P2PUnInit, start");
+		logMessage(logInfo, "P2PUnInit, end");
 
 		UnInitLog();
 	}

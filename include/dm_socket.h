@@ -1,5 +1,5 @@
-#if !defined(_UDP_TRANSPORT_H_INCLUDED_)
-#define _UDP_TRANSPORT_H_INCLUDED_
+#if !defined(_DM_UTILS_SOCKET_H_INCLUDED_)
+#define _DM_UTILS_SOCKET_H_INCLUDED_
 
 #pragma once
 
@@ -85,4 +85,4 @@ bool GetGatewayIp(char *gatewayip, int nsize);
 }
 #endif
 
-#endif //!define _UDP_TRANSPORT_H_INCLUDED_
+#endif //!define _DM_UTILS_SOCKET_H_INCLUDED_

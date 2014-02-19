@@ -16,7 +16,8 @@
           '../src/dm_common.c',
           '../src/dm_list.c',
 		  '../src/dm_timer.c',
-          '../src/dm_socket.c'
+          '../src/dm_socket.c',
+          '../src/hashmap.c'
         ],
         'conditions': [
             [ 'OS=="win"', {
@@ -38,6 +39,7 @@
             '../include',
         ],        
 		'sources': [
+          '../test/dm_test.c',
           '../test/timer_test.c',
           '../test/main.c'
         ],

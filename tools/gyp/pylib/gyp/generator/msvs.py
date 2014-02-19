@@ -272,6 +272,59 @@ def _ConvertSourcesToFilterHierarchy(sources, prefix=None, excluded=None,
     result.append(contents)
   return result
 
+def _ConvertSourcesToFilterHierarchy2(sources, groups, prefix=None, excluded=None,
+                                     list_excluded=True, msvs_version=None):
+  """Converts a list split source file paths into a vcproj folder hierarchy.
+
+  Arguments:
+    sources: A list of source file paths split.
+    groups: The optimized filter hierarchy
+    prefix: A list of source file path layers meant to apply to each of sources.
+    excluded: A set of excluded files.
+    msvs_version: A MSVSVersion object.
+
+  Returns:
+    A hierarchy of filenames and MSVSProject.Filter objects that matches the
+    layout of the source tree.
+    For example:
+    _ConvertSourcesToFilterHierarchy2([['a', 'bob1.c'], ['b', 'bob2.c']], ['a', 'b'],
+                                     prefix=['joe'])
+    -->
+    [MSVSProject.Filter('a', contents=['joe\\a\\bob1.c']),
+     MSVSProject.Filter('b', contents=['joe\\b\\bob2.c'])]
+  """
+  if not prefix: prefix = []
+  result = []
+  excluded_result = []
+  filters = {}
+  # Gather files into the final result, excluded.
+  for i, s in enumerate(sources):
+    filename = _NormalizedSource('\\'.join(prefix + s))
+    if filename in excluded:
+      excluded_result.append(filename)
+    else:
+      if not groups[i]:
+        result.append(filename)
+      elif groups[i] in filters:
+        filters[groups[i]].contents.append(filename)
+      else:
+        gs = groups[i].split('\\')
+        contents = filename
+        leaf = True
+        for fn in reversed(gs):
+          contents = MSVSProject.Filter(fn, contents=[contents])
+          if leaf:
+            leaf = False
+            filters[groups[i]] = contents
+        result.append(contents)
+      
+  # Add a folder for excluded files.
+  if excluded_result and list_excluded:
+    excluded_folder = MSVSProject.Filter('_excluded_files',
+                                         contents=excluded_result)
+    result.append(excluded_folder)
+
+  return result
 
 def _ToolAppend(tools, tool_name, setting, value, only_if_unset=False):
   if not value: return
@@ -1436,7 +1489,17 @@ def _PrepareListOfSources(spec, generator_flags, gyp_file):
     _AddNormalizedSources(sources, cpy.get('files', []))
   return (sources, excluded_sources)
 
-
+def _RemoveCommonPrefixList(ss):
+  """Remove the common prefix from the list, for example:
+  ["abc", "abcd", "ab"] will return ["c", "cd", ""]
+  """
+  common_prefix = os.path.commonprefix(ss)
+  start_pos = len(common_prefix)
+  ret = []
+  for s in ss:
+    ret.append(s[start_pos:])
+  return ret
+  
 def _AdjustSourcesAndConvertToFilterHierarchy(
     spec, options, gyp_dir, sources, excluded_sources, list_excluded, version):
   """Adjusts the list of sources and excluded sources.
@@ -1472,11 +1535,15 @@ def _AdjustSourcesAndConvertToFilterHierarchy(
   fully_excluded = [i for i in excluded_sources if i not in precompiled_related]
 
   # Convert to folders and the right slashes.
+  abs_sources = []
+  for i in sources:
+    i_path, i_filename = os.path.split(i)
+    abs_sources.append(os.path.normpath(os.path.join(gyp_dir, i_path)))
+  abs_sources = _RemoveCommonPrefixList(abs_sources)
   sources = [i.split('\\') for i in sources]
-  sources = _ConvertSourcesToFilterHierarchy(sources, excluded=fully_excluded,
+  sources = _ConvertSourcesToFilterHierarchy2(sources, abs_sources, excluded=fully_excluded,
                                              list_excluded=list_excluded,
                                              msvs_version=version)
-
   # Prune filters with a single child to flatten ugly directory structures
   # such as ../../src/modules/module1 etc.
   while len(sources) == 1 and isinstance(sources[0], MSVSProject.Filter):

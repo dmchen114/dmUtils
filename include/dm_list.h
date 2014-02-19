@@ -1,5 +1,5 @@
-#if !defined(_UDP_TRANSPORT_LIST_H_INCLUDED_)
-#define _UDP_TRANSPORT_LIST_H_INCLUDED_
+#if !defined(_DM_UTILS_LIST_H_INCLUDED_)
+#define _DM_UTILS_LIST_H_INCLUDED_
 
 typedef void* ElementType;
 struct Node;
@@ -56,4 +56,4 @@ void lstUnLock(List L);
 }
 #endif
 
-#endif //!define _UDP_TRANSPORT_LIST_H_INCLUDED_
+#endif //!define _DM_UTILS_LIST_H_INCLUDED_

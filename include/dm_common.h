@@ -1,5 +1,5 @@
-#if !defined(_P2P_TRANSPORT_COMMON_H_INCLUDED_)
-#define _P2P_TRANSPORT_COMMON_H_INCLUDED_
+#if !defined(_DM_TRANSPORT_COMMON_H_INCLUDED_)
+#define _DM_TRANSPORT_COMMON_H_INCLUDED_
 
 #pragma once
 
@@ -185,4 +185,4 @@ unsigned long bintohex(const char *input, unsigned long len, char **out);
 #define UNUSED(x) (void)(x)
 #define FREEBUF(x) if(x){ free(x); (x) = NULL;}
 
-#endif //!define _P2P_TRANSPORT_COMMON_H_INCLUDED_
+#endif //!define _DM_TRANSPORT_COMMON_H_INCLUDED_

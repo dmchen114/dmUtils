@@ -1,6 +1,7 @@
 #include "dm_common.h"
 #include "dm_socket.h"
 #include "dm_timer.h"
+#include "dm_test.h"
 
 #define TEST_TIME_UNIT 100
 

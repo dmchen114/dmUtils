@@ -1,5 +1,5 @@
-#if !defined(_P2P_TRANSPORT_TIMER_H_INCLUDED_)
-#define _P2P_TRANSPORT_TIMER_H_INCLUDED_
+#if !defined(_DM_UTILS_TIMER_H_INCLUDED_)
+#define _DM_UTILS_TIMER_H_INCLUDED_
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,5 +39,5 @@ void Sleep(unsigned long ms);
 }
 #endif
 
-#endif //!define _P2P_TRANSPORT_TIMER_H_INCLUDED_
+#endif //!define _DM_UTILS_TIMER_H_INCLUDED_
 

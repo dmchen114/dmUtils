@@ -7,7 +7,10 @@
 extern "C" {
 #endif
 
+typedef void (*dmTestCase)();
+
 void dmRunAllTests();
+void dmRegisterCase(const char* caseId, dmTestCase f);
 
 #ifdef __cplusplus
 }

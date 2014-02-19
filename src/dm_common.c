@@ -242,9 +242,141 @@ void logMessage(int level, const char *format, ...)
 	UnLock(&g_LockLog);
 }
 #endif
+
 /////////////////////////////////////////////////////////////////////
 //command line
 /////////////////////////////////////////////////////////////////////
+typedef struct
+{
+    char short_name;
+    char *long_name;
+    char *description;
+    int has_argument;
+    int is_mandated;
+}OptCmdOptions;
+
+struct OptCmdDatas{
+    int argc;
+    char** argv;
+    int nCount;
+    OptCmdOptions *opts;
+    int nSize;
+    int isInvalid;
+} g_opts;
+
+void optInit(int argc, char** argv)
+{
+    g_opts.argc = argc;
+    g_opts.argv = argv;
+    g_opts.nCount = 0;
+    g_opts.nSize = 32;
+    g_opts.opts = (OptCmdOptions*)malloc(g_opts.nSize * sizeof(OptCmdOptions));
+    memset(g_opts.opts, 0, (g_opts.nSize) * sizeof(OptCmdOptions));
+    g_opts.isInvalid = 0;
+}
+
+const char* optGet(const char* lname, const char sname, int hasArg, int isMust, 
+                   const char* desc, const char* defVal)
+{
+    OptCmdOptions* opts;
+    int len, i;
+
+    //Please make sure not to call any optGet after optExitOnHelp
+    assert(g_opts.nSize > 0);
+
+    //Reallocate if there are more than 32 options
+    if(g_opts.nCount == g_opts.nSize)
+    {
+        opts = (OptCmdOptions*)malloc((g_opts.nSize + 32) * sizeof(OptCmdOptions));
+        memset(opts, 0, (g_opts.nSize + 32) * sizeof(OptCmdOptions));
+        memcpy(opts, g_opts.opts, g_opts.nSize * sizeof(OptCmdOptions));
+        g_opts.nSize += 32;
+        free(g_opts.opts);
+        g_opts.opts = opts;
+    }
+    opts = &g_opts.opts[g_opts.nCount];
+    opts->short_name = sname;
+    len = strlen(lname) + 1;
+    opts->long_name = (char*)malloc(len);
+    strcpy_s(opts->long_name, len, lname);
+    len = strlen(desc) + 1;
+    opts->description = (char*)malloc(len);
+    strcpy_s(opts->description, len, desc);
+    opts->has_argument = hasArg;
+    opts->is_mandated = isMust;
+
+    g_opts.nCount += 1;
+
+    //Parse the command line and findout the result.
+  	for(i = 0; i < g_opts.argc; i++)
+    {
+        char *key = g_opts.argv[i];
+        if(key[0] == '-')
+		{
+            char *stripped = key;
+            while(*stripped != '\0' && *stripped == '-')
+                stripped++;
+
+            if(*stripped == '\0')
+                continue;
+            if((stripped[1] == '\0' && stripped[0] == sname) || _stricmp(stripped, lname) == 0)
+            {
+                if(hasArg){
+                    if(i + 1 < g_opts.argc)
+                        return g_opts.argv[i + 1];
+                    else
+                        return "";
+                }else{
+                    return "true";
+                }
+			}
+		}
+	}
+
+    if(isMust)
+        g_opts.isInvalid = 1;
+    return defVal;
+}
+
+void optFreeOptions()
+{
+    int i;
+    for(i = 0; i < g_opts.nCount; i++){
+        OptCmdOptions *opts = &(g_opts.opts[i]);
+
+        FREEBUF(opts->long_name);
+        FREEBUF(opts->description);
+    }
+    g_opts.opts = NULL;
+    g_opts.nSize = 0;
+    FREEBUF(g_opts.opts);
+    g_opts.nCount = 0;
+}
+
+void optExitOnInvalid()
+{
+    const char *val = optGet("help", 'h', 0, 0, "", "");
+    if(val[0] != '\0' || g_opts.isInvalid)
+    {
+        int i;
+        printf("Usage: %s [options]\r\n\r\nOptions:\r\n", g_opts.argv[0]);
+        for(i = 0; i < g_opts.nCount; i++){
+            OptCmdOptions *opt = &g_opts.opts[i];
+            char *arg, *must;
+            arg = (opt->has_argument) ? "argument" : "";
+            must = (opt->is_mandated) ? "MUST" : "";
+            if(opt->short_name != 0)
+                printf("  -%c, --%s %s\t%s\t%s\r\n", opt->short_name, opt->long_name, arg, must, opt->description);
+            else
+                printf("  --%s %s\t%s\t%s\r\n", opt->long_name, arg, must, opt->description);
+        }
+        if(g_opts.isInvalid)
+            printf("\r\n\r\nError: Some mandated option(s) are not set");
+        exit(0);
+    }
+    optFreeOptions();
+}
+
 char* FindParamFromCmdLine(const char* key, int argc, char** argv)
 {
 	int i = 0;

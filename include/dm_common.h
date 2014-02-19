@@ -164,10 +164,16 @@ void UnInitLog();
 	#define logMessage
 #endif
 
-/////////////////////////////////////////////////////////////////////
-//command line
-/////////////////////////////////////////////////////////////////////
-char* FindParamFromCmdLine(const char* key, int argc, char** argv);
+/*
+ * Command line functions
+ * You MUST NOT call optGet before optInit or after optExitOnHelp
+ * This is not the best command line parser interface in C, the only advance is it will yield to the least
+ * code line while you are using it. A more elegant or comman way is to call get_opt_long instead.
+ */
+void optInit(int argc, char** argv);
+const char* optGet(const char* lname, const char sname, int hasArg, int isMust, 
+                   const char* desc, const char* defVal);
+void optExitOnInvalid();
 
 /////////////////////////////////////////////////////////////////////
 //Parse address from format xx.xx.xx.xx:xxxx into IP and port

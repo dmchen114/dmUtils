@@ -16,7 +16,7 @@ void on_test_timer_repeat(void* pPtr, unsigned long uID)
 	logMessage(logInfo, "on_test_timer_repeat");
 }
 
-void test_timer()
+int test_timer()
 {
 	unsigned long timer_id;
 	long testl;
@@ -38,5 +38,13 @@ void test_timer()
 	CancelTimer(timer_id);
 
 	P2PUnInit();
-	printf("[pass] test timer");
+	OK(true, "test timer");
+
+    return 0;
+}
+
+int test_opt()
+{
+    OK(false, "options");
+    return 1;
 }

@@ -7,10 +7,29 @@
 extern "C" {
 #endif
 
-typedef void (*dmTestCase)();
+typedef int (*dmTestCase)();
 
-void dmRunAllTests();
-void dmRegisterCase(const char* caseId, dmTestCase f);
+#ifdef WIN32
+#define DM_COLOR_RED       FOREGROUND_RED
+#define DM_COLOR_BLUE      FOREGROUND_BLUE
+#define DM_COLOR_GREEN     FOREGROUND_GREEN
+#else
+#define DM_COLOR_RED       31
+#define DM_COLOR_BLUE      34
+#define DM_COLOR_GREEN     32
+#endif
+
+void dmRunTests(int argc, char **argv);
+void dmRegisterCase(char* caseId, dmTestCase f);
+void OK(bool condition, char* description); 
+void colorPrintf(int color, const char* s);
+
+#define DECLARE_TESTCASE(x) \
+    do{ extern void test_##x(); \
+    dmRegisterCase(#x, test_##x); }while(0); \
+
+
+#define RUN_ALL_CASES dmRunTests
 
 #ifdef __cplusplus
 }

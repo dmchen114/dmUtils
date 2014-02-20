@@ -143,17 +143,23 @@ void logEnableLevel(int level);
 void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...);
 
 /**
- * DMLog enables SYSLOG,CONSOLE,MMAP,FILE log drivers, you can select them with MACRO definition, 
+ * DMLog enables SYSLOG,CONSOLE,FILE, MMAP log drivers, you can select them with MACRO definition, 
  * for example, -DENABLE_DMLOG=2
  * The behavior of different drivers is defined:
- *   - SYSLOG(1): in windows, we use OutputDebugString, so you can use DebugView/Visual Studio to track them.
- *             in linux, we use syslog, you can find out the log under /var/log/messages(CentOS) or /var/log/syslog(Ubuntu) or others..
- *             in Android, it is logcat
+ *   - SYSLOG(1): 
+ *       Windows> we use OutputDebugString, so you can use DebugView/Visual Studio to view.
+ *       Linux>   we use syslog, you can find out the log under 
+ *                /var/log/messages(CentOS) or /var/log/syslog(Ubuntu) or others..
+ *       Android> it is logcat
  *             ...
  *   - CONSOLE(2): it just printf to console
- *   - FILE(3): it will write directly to a file in the same folder as binary, it will not rotate and is slow when IO is not fast.
- *   - MMAP(4): it will write to a memory map file, it needs another binary called `dmlogd` to capture them to files or any other places, for example, a server.
- *           this method is fast, and the default `dmlogd` provided in dmUtils is very simple and will write to a rotatable file.
+ *   - FILE(3): it will write directly to a file in the same folder as binary, 
+ *              it will not rotate and is slow when IO is not fast. NOT RECOMMENDED.
+ *   - MMAP(4): it will write to a memory map file, it needs another binary called `dmlogd` 
+ *              to capture them to files or any other places, for example, a server.
+ *              This method is fast, and the default `dmlogd` provided in dmUtils can
+ *              write to rotatable files with daily IO limitation, a python script is also
+ *              available for CI to capture the logs.
  */
 
 #define LOG_DRIVER_SYSLOG   1
@@ -187,10 +193,10 @@ enum
 		#define logError(format, ...) dmLogMessage(logErrorLevel, __FILE__, __LINE__, format, __VA_ARGS__)
 	#endif
 #else
-		#define logDebug(format, ...) 
-		#define logInfo(format, ...) 
-		#define logWarning(format, ...) 
-		#define logError(format, ...) 
+		#define logDebug(...) 
+		#define logInfo(...) 
+		#define logWarning(...) 
+		#define logError(...) 
 #endif
 
 /*

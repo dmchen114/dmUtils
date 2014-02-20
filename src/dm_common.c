@@ -9,6 +9,7 @@
 static int g_logLevelNative[logLevelCount] = {ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN, ANDROID_LOG_ERROR};
 #elif defined(LINUX)
 #include "syslog.h"
+#include "sys/syscall.h"
 static int g_logLevelNative[logLevelCount] = {LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERR};
 #else
 static int g_logLevelNative[logLevelCount] = {0, 1, 2, 3};
@@ -245,7 +246,7 @@ int dmLogFormatHeader(char *buffer, int nSize, int level)
 			         tmVar.tm_mon + 1, tmVar.tm_mday, (tmVar.tm_year + 1900) % 100,
 			         tmVar.tm_hour, tmVar.tm_min, tmVar.tm_sec,
 			         timeVal.tv_usec / 1000,
-			         getpid(), gettid(), g_logLevelString[level]);
+			         getpid(), (int)syscall(224), g_logLevelString[level]);
 #endif
 }
 

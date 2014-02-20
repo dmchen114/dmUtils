@@ -175,7 +175,7 @@ enum
 		#include <utils/Log.h>
     #else
     #endif
-	#if defined(__IPHONE__) || defined(__APPLE_CC__)
+	#if defined(__IPHONE__) || defined(__APPLE_CC__) || defined(__GNUC__)
 		#define logDebug(format, args...) dmLogMessage(logDebugLevel, __FILE__, __LINE__, format, ##args)
 		#define logInfo(format, args...) dmLogMessage(logInfoLevel, __FILE__, __LINE__, format, ##args)
 		#define logWarning(format, args...) dmLogMessage(logWarningLevel, __FILE__, __LINE__, format, ##args)

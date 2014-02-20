@@ -1128,7 +1128,7 @@ void* serv_epoll(void * p)
 	int timeout;
 	long delaytime;
 
-	logMessage(logDebug, "serv_epoll enter");
+	logDebug("serv_epoll enter");
 	while(g_bInited)
 	{
 		timeout = 30000;
@@ -1158,14 +1158,14 @@ void* serv_epoll(void * p)
 				cfd = events[i].data.fd;
 				if(NULL == trans)
 				{
-					logMessage(logWarning, "trans == NULL, continued");
+					logWarning("trans == NULL, continued");
 					continue;
 				}
 				OnEpollEvents(trans, events[i].events);
 			}
 		}
 	}
-	logMessage(logDebug, "serv_epoll exit");
+	logDebug("serv_epoll exit");
 #endif
 
 	return NULL;

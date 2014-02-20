@@ -1,5 +1,20 @@
 #include "dm_common.h"
 
+#if defined(ENABLE_DMLOG) && (ENABLE_DMLOG > LOG_DRIVER_FILE)
+    #undef ENABLE_DMLOG
+    #define ENABLE_DMLOG LOG_DRIVER_SYSLOG
+#endif
+
+#if defined(ANDROID)
+static int g_logLevelNative[logLevelCount] = {ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN, ANDROID_LOG_ERROR};
+#elif defined(LINUX)
+#include "syslog.h"
+static int g_logLevelNative[logLevelCount] = {LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERR};
+#else
+static int g_logLevelNative[logLevelCount] = {0, 1, 2, 3};
+#endif
+static char g_logLevelString[logLevelCount] = {'D', 'I', 'W', 'E'};
+
 ////////////////////////////////////////////////////////////
 //Mutex
 ////////////////////////////////////////////////////////////
@@ -158,90 +173,134 @@ size_t GetFileSizeFD(FILEDESC fd)
 //Log
 ////////////////////////////////////////////////////////////
 THREAD_MUTEX_T g_LockLog;
+int g_logLevel = -1;
 FILE *g_hLogFile = NULL;
 
-void InitLog(const char* lpszPath)
+void logInit(const char* lpszPath)
 {
 #if !defined(ENABLE_DMLOG)
 	return;
 #else
+    g_logLevel = logDebugLevel;
 	InitLock(&g_LockLog);
-#if defined(WIN32) && defined(_MSC_VER) && defined(_DEBUG)
-	return;
-#endif
+    g_hLogFile = NULL;
+#if (ENABLE_DMLOG==LOG_DRIVER_FILE)
 	g_hLogFile = fopen(lpszPath, "w+t");
+#endif
+
+#if (ENABLE_DMLOG==LOG_DRIVER_SYSLOG)
+  #ifdef LINUX
+    openlog(NULL, LOG_CONS|LOG_PID, LOG_USER);
+  #endif
+#endif
+
 #endif
 }
 
-void UnInitLog()
+void logUnInit()
 {
 #if !defined ENABLE_DMLOG
 	return;
 #else
+#if (ENABLE_DMLOG==LOG_DRIVER_FILE)
 	if(g_hLogFile != NULL)
 	{
 		fclose(g_hLogFile);
 		g_hLogFile = NULL;
 	}
+#endif
 	UnInitLock(&g_LockLog);
+#if (ENABLE_DMLOG==LOG_DRIVER_SYSLOG)
+  #ifdef LINUX
+    openlog(NULL, LOG_CONS|LOG_PID, LOG_USER);
+  #endif
+#endif
+
 #endif
 }
-#if defined ENABLE_DMLOG && !defined (ANDROID) && !defined (__IPHONE__)
-void logMessage(int level, const char *format, ...)
+
+void logEnableLevel(int level)
 {
-	va_list ap;
-	static char s_buffer[2048];
-#ifdef WIN32
+    Lock(&g_LockLog);
+    g_logLevel = level;
+    UnLock(&g_LockLog);
+}
+
+int dmLogFormatHeader(char *buffer, int nSize, int level)
+{
+#if defined(WIN32) && defined(_MSC_VER)
 	SYSTEMTIME wtm;
+	GetLocalTime(&wtm);
+	return sprintf_s(buffer, nSize, "[%02d/%02d/%02d %02d:%02d:%02d.%03d pid=%d tid=%d][%c]", 
+			         wtm.wMonth, wtm.wDay, wtm.wYear % 100, wtm.wHour, wtm.wMinute, 
+			         wtm.wSecond, wtm.wMilliseconds, GetCurrentProcessId(), 
+			         GetCurrentThreadId(), g_logLevelString[level]);
 #else
 	struct timeval timeVal;
 	struct tm tmVar;
+
+	gettimeofday(&timeVal, NULL);
+	localtime_r((const time_t*)&timeVal.tv_sec, &tmVar);
+	return sprintf_s(buffer, nSize, "[%02d/%02d/%02d %02d:%02d:%02d.%03lu pid=%d tid=%d][%c]", 
+			         tmVar.tm_mon + 1, tmVar.tm_mday, (tmVar.tm_year + 1900) % 100,
+			         tmVar.tm_hour, tmVar.tm_min, tmVar.tm_sec,
+			         timeVal.tv_usec / 1000,
+			         getpid(), gettid(), g_logLevelString[level]);
 #endif
+}
+
+#define FORMAT_STRING() \
+    nWritten = dmLogFormatHeader(s_buffer, 2046, level);    \
+    nWritten += vsprintf_s(s_buffer + nWritten, 2046 - nWritten, format, ap);   \
+    s_buffer[nWritten++] = '\n'; \
+    s_buffer[nWritten++] = '\0'; \
+
+
+void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...)
+{
+	va_list ap;
+	static char s_buffer[2048];
+    int nWritten = 0;
+
+    if(level < g_logLevel) 
+        return;
 
 	Lock(&g_LockLog);
+    s_buffer[2047] = 0;
 	va_start(ap, format);
-	if(g_hLogFile == NULL)
-	{
-#if defined(WIN32) && defined(_MSC_VER) && defined(_DEBUG)
-		GetLocalTime(&wtm);
-		sprintf_s(s_buffer, 2047, "[%02d/%02d/%04d %02d:%02d:%02d.%03d pid=%d tid=%d][l=%d]", 
-			wtm.wMonth, wtm.wDay, wtm.wYear, wtm.wHour, wtm.wMinute, 
-			wtm.wSecond, wtm.wMilliseconds, GetCurrentProcessId(), 
-			GetCurrentThreadId(), level);
-		OutputDebugString(s_buffer);
-		vsprintf_s(s_buffer, 2047, format, ap);
-		OutputDebugString(s_buffer);
-		OutputDebugString("\r\n");
-#else
-		vprintf(format, ap);
-		printf("\r\n");
+#if(ENABLE_DMLOG == LOG_DRIVER_SYSLOG)
+#ifdef WIN32
+    FORMAT_STRING();
+    OutputDebugString(s_buffer);
+#elif defined(ANDROID)
+    __android_log_vprint(g_logLevelNative[level], dmBaseName(filename), format, ap);
+#elif defined(LINUX)
+
+    vsyslog(g_logLevelNative[level], format, ap);
+#elif defined(__IPHONE__)
+    FORMAT_STRING();
+    printf(s_buffer);
 #endif
-	}
-	else
-	{
-		vsprintf_s(s_buffer, 2047, format, ap);
-#ifndef WIN32
-		gettimeofday(&timeVal, NULL);
-		localtime_r((const time_t*)&timeVal.tv_sec, &tmVar);
-		fprintf(g_hLogFile, "[%02d/%02d/%04d %02d:%02d:%02d.%03lu pid=%d tid=%d][l=%d]%s\r\n", 
-			tmVar.tm_mon + 1, tmVar.tm_mday, tmVar.tm_year + 1900,
-			tmVar.tm_hour, tmVar.tm_min, tmVar.tm_sec,
-			timeVal.tv_usec / 1000,
-			getpid(), (int)pthread_self(), level,
-			s_buffer);
-#else
-		GetLocalTime(&wtm);
-		fprintf(g_hLogFile, "[%02d/%02d/%04d %02d:%02d:%02d.%03d pid=%d tid=%d][l=%d]%s\n", 
-			wtm.wMonth, wtm.wDay, wtm.wYear, wtm.wHour, wtm.wMinute, 
-			wtm.wSecond, wtm.wMilliseconds, GetCurrentProcessId(), 
-			GetCurrentThreadId(), level, s_buffer);
 #endif
-		fflush(g_hLogFile);
-	}
+
+#if (ENABLE_DMLOG == LOG_DRIVER_CONSOLE)
+    FORMAT_STRING();
+    printf(s_buffer);
+#endif
+
+#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+#endif
+
+#if (ENABLE_DMLOG == LOG_DRIVER_FILE)
+	if(g_hLogFile != NULL){
+        FORMAT_STRING();
+        fwrite(s_buffer, sizeof(char), nWritten - 1, g_hLogFile);
+	    fflush(g_hLogFile);
+    }
+#endif
 	va_end(ap);
 	UnLock(&g_LockLog);
 }
-#endif
 
 /////////////////////////////////////////////////////////////////////
 //command line
@@ -406,7 +465,7 @@ void ParseAddr(unsigned char* szIn, unsigned short* pPort, char* pIP, int nIPLen
 
 	if(!szFind)
 	{
-		logMessage(logError, "ParseAddr, unknow aIpAddrAndPort=%s", szIn);
+		logError("ParseAddr, unknow aIpAddrAndPort=%s", szIn);
 		*pPort = 0;
 		szFind = (char*)szIn;
 	}

@@ -72,7 +72,7 @@ int P2PInit()
 #else
 		sprintf_s(szLogFilePath, 1023, "%s_%d.log", LOG_FILENAME, getpid());
 #endif
-		InitLog(szLogFilePath);
+		logInit(szLogFilePath);
 
 		//Start to initilize the socket library
 #ifdef WIN32
@@ -97,7 +97,7 @@ int P2PInit()
 				break;
 			Sleep(30);
 		}
-		logMessage(logInfo, "P2PInit, the network thread window handle is: 0x%x", g_hWndNotify);
+		logInfo("P2PInit, the network thread window handle is: 0x%x", g_hWndNotify);
 #endif
 #else
 		pthread_attr_t attr;
@@ -105,14 +105,14 @@ int P2PInit()
 		//pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
 		if(pthread_create(&g_hThread, &attr, serv_epoll, NULL) != 0)
 		{
-			logMessage(logError, "Create network thread failed.");
+			logError("Create network thread failed.");
 			return 0;
 		}
 #endif
 		//Create notifier
 		CreateNotifier();
 
-		logMessage(logInfo, "P2PInit, done.");
+		logInfo("P2PInit, done.");
 	}
 	
 	return g_bInited;
@@ -124,13 +124,13 @@ void JoinNetThread()
 	WaitForSingleObject(g_hThread, INFINITE);
 #else
 	pthread_join(g_hThread, NULL);
-    logMessage(logInfo, "pthread join 0x%x", g_hThread);
+    logInfo("pthread join 0x%x", g_hThread);
 #endif
 }
 
 void P2PUnInit()
 {
-	logMessage(logInfo, "P2PUnInit, start");
+	logInfo("P2PUnInit, start");
 	if(g_bInited)
 	{
 		g_bInited = 0;
@@ -163,9 +163,9 @@ void P2PUnInit()
 			g_epoll_fd = 0;
 		}
 #endif
-		logMessage(logInfo, "P2PUnInit, end");
+		logInfo("P2PUnInit, end");
 
-		UnInitLog();
+		logUnInit();
 	}
 }
 
@@ -335,7 +335,7 @@ void HandleRead(LPUDPTRANSPORT trans)
 	else
 	{
 		assert(false);
-		logMessage(logError, "HandleRead, unknown transport type.");
+		logError("HandleRead, unknown transport type.");
 	}
 }
 
@@ -377,7 +377,7 @@ void ProcessFdSets(fd_set* fsRead, fd_set* fsWrite, fd_set* fsException, int nSe
 		it = lstAdvance(it);
 		if((int)trans->s > nMaxFd)
 		{
-			logMessage(logInfo, "New socket added into the list.");
+			logInfo("New socket added into the list.");
 			it = lstAdvance(it);
 			continue;
 		}
@@ -417,7 +417,7 @@ void SelectProc()
 	int nSelect;
 	long delaytime;
 
-	logMessage(logInfo, "Using select.");
+	logInfo("Using select.");
 	while(g_bInited)
 	{
 		delaytime = ProcessTimer();
@@ -460,7 +460,7 @@ void SelectProc()
 		{
 			if(nMaxFd > 0)
 			{
-				logMessage(logError, "CCmReactorSelect::RunEventLoop, select() failed! maxfd=%d, err=%d", nMaxFd, errno);
+				logError("CCmReactorSelect::RunEventLoop, select() failed! maxfd=%d, err=%d", nMaxFd, errno);
 				return;
 			}
 #ifdef WIN32
@@ -542,7 +542,7 @@ LRESULT CALLBACK UdpUtilWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 		}
 		else
 		{
-			logMessage(logInfo, "UdpUtilWndProc, can not found CUdpUtil, Msg=%d", uMsg);
+			logInfo("UdpUtilWndProc, can not found CUdpUtil, Msg=%d", uMsg);
 		}
 		return 0L;
 	}else if(uMsg == WM_TIMER)
@@ -592,21 +592,21 @@ DWORD WINAPI WndThreadProc(LPVOID lpParameter)
     { 
         if (bRet == -1)
         {
-			logMessage(logError, "GetMessage failed.");
+			logError("GetMessage failed.");
             break;
         }
         else
         {
 			if(msg.message == WM_SOCKET_CLOSE_THREAD)
 			{
-				logMessage(logInfo, "WM_SOCKET_CLOSE_THREAD, received.");
+				logInfo("WM_SOCKET_CLOSE_THREAD, received.");
 				break;
 			}
             TranslateMessage(&msg); 
             DispatchMessage(&msg); 
         }
     }
-	logMessage(logInfo, "Network thread exited.");
+	logInfo("Network thread exited.");
 #else
 #endif
 	return 0;
@@ -622,7 +622,7 @@ LPUDPTRANSPORT CreateTransport(int eTransType, TRANSPORTSINK sink, unsigned shor
 	UDPTRANSPORT *trans = NULL;
 
 	trans = (UDPTRANSPORT*)malloc(sizeof(struct udp_transport));
-	logMessage(logInfo, "CreateTransport, type=%d, nPort=%d, localIP=%s, trans=0x%x", eTransType, nPort, localIP ? localIP : "0.0.0.0", trans);
+	logInfo("CreateTransport, type=%d, nPort=%d, localIP=%s, trans=0x%x", eTransType, nPort, localIP ? localIP : "0.0.0.0", trans);
 	if(trans == NULL)
 		return NULL;
 
@@ -654,7 +654,7 @@ LPUDPTRANSPORT CreateTransport(int eTransType, TRANSPORTSINK sink, unsigned shor
 		if(trans->s == INVALID_SOCKET)
 		{
 			GETERR();
-			logMessage(logError, "Failed to create socket, %d", err);
+			logError("Failed to create socket, %d", err);
 			break;
 		}
 
@@ -671,7 +671,7 @@ LPUDPTRANSPORT CreateTransport(int eTransType, TRANSPORTSINK sink, unsigned shor
 		if(setsockopt(trans->s, SOL_SOCKET,SO_REUSEADDR,(char *)&nOne,sizeof(nOne)) == SOCKET_ERROR)
 		{
 			GETERR();
-			logMessage(logError, "Failed to setsockopt SO_REUSEADDR error, err=%d", err);
+			logError("Failed to setsockopt SO_REUSEADDR error, err=%d", err);
 		}
 
 		if(eTransType != eTransportConnector)
@@ -679,22 +679,22 @@ LPUDPTRANSPORT CreateTransport(int eTransType, TRANSPORTSINK sink, unsigned shor
 			if(bind(trans->s, (struct sockaddr*)&addr, sizeof(addr)) != 0)
 			{
 				GETERR();
-				logMessage(logError, "Could not bind UDP receive port due to system error, errorCode=%d", err);
+				logError("Could not bind UDP receive port due to system error, errorCode=%d", err);
 				switch(err)
 				{
 				case 0:
 					{
-						logMessage(logError, "Could not bind socket" );
+						logError("Could not bind socket" );
 						break;
 					}
 				case MY_EADDRINUSE:
 					{
-						logMessage(logError, "Port for receiving UDP is in use");
+						logError("Port for receiving UDP is in use");
 						break;
 					}
 				case MY_EADDRNOTAVAIL:
 					{
-						logMessage(logError, "Cannot assign requested address");
+						logError("Cannot assign requested address");
 						break;
 					}
 				default:
@@ -744,7 +744,7 @@ int RecvUdpMessage(Socket s, char* buf, int* len,  unsigned long* ip, unsigned s
 	if(*len == SOCKET_ERROR || *len <= 0)
 	{
 		GETERR();
-		logMessage(logError, "Failed to recv UDP message, err=%d, len=%d", err, *len);
+		logError("Failed to recv UDP message, err=%d, len=%d", err, *len);
 		switch(err)
 		{
 		case MY_ENOTSOCK:
@@ -752,7 +752,7 @@ int RecvUdpMessage(Socket s, char* buf, int* len,  unsigned long* ip, unsigned s
 		case MY_ECONNRESET:
 			break;
 		default:
-//			logMessage(logError, "Failed to recv UDP message");
+//			logError("Failed to recv UDP message");
 			break;
 		}
 		return 0;
@@ -761,7 +761,7 @@ int RecvUdpMessage(Socket s, char* buf, int* len,  unsigned long* ip, unsigned s
 	*ip = from.sin_addr.s_addr;
 	if((*len)+1 >= nSize)
 	{
-		logMessage(logError, "Received a message that was too large");
+		logError("Received a message that was too large");
 		return 0;
 	}
 
@@ -786,7 +786,7 @@ void OnTCPInput(LPUDPTRANSPORT trans)
 			GETERR();
 			nRet = -1;
 			if(err != MY_EWOULDBLOCK)
-				logMessage(logError, "OnTCPInput, recv error = %d", err);
+				logError("OnTCPInput, recv error = %d", err);
 			if(err == MY_ECONNRESET || MY_ECONNABORTED == err)
 			{
 				trans->bClosed = true;
@@ -846,7 +846,7 @@ int SendUdpData(LPUDPTRANSPORT trans, char* buf, int len, unsigned long dwPeerIP
 	if(nRetVal == SOCKET_ERROR)
 	{
 		GETERR();
-		logMessage(logError, "Send UDP err = %d", err);
+		logError("Send UDP err = %d", err);
 		switch (err)
 		{
 		case MY_ECONNREFUSED:
@@ -862,7 +862,7 @@ int SendUdpData(LPUDPTRANSPORT trans, char* buf, int len, unsigned long dwPeerIP
 
 	if(nRetVal == 0 || nRetVal != len)
 	{
-		logMessage(logError, "no data sent in send, retval=%d, len=%d", nRetVal, len);
+		logError("no data sent in send, retval=%d, len=%d", nRetVal, len);
 		return -2;
 	}
 
@@ -923,7 +923,7 @@ LPTCPTRANSPORT OpenTcpAcceptor(unsigned short nListenPort, TRANSPORTSINK sink, c
 		{
 			GETERR();
 			assert(false);
-			logMessage(logInfo, "OpenTcpAcceptor, listen error = %d.", err);
+			logInfo("OpenTcpAcceptor, listen error = %d.", err);
 			CloseTcpTransport(trans);
 			return NULL;
 		}
@@ -941,7 +941,7 @@ LPTCPTRANSPORT OpenTcpConnector(const char* svrIP, unsigned short nSvrPort, TRAN
 	if(svrIP == NULL || nSvrPort == 0)
 	{
 		assert(false);
-		logMessage(logError, "OpenTcpConnector, invalid parameters.");
+		logError("OpenTcpConnector, invalid parameters.");
 		return NULL;
 	}
 
@@ -958,7 +958,7 @@ LPTCPTRANSPORT OpenTcpConnector(const char* svrIP, unsigned short nSvrPort, TRAN
 	if(connect(trans->s, (struct sockaddr*)&to, toLen) == SOCKET_ERROR)
 	{
 		GETERR();
-		logMessage(logError, "OpenTcpConnector, connect error, err = %d, this=0x%x", err, trans);
+		logError("OpenTcpConnector, connect error, err = %d, this=0x%x", err, trans);
 		trans->bConnectPending = true;
 		if(err != MY_EWOULDBLOCK && err != MY_EINPROGRESS)
 		{
@@ -1001,24 +1001,24 @@ void SetSocketBuffer(LPUDPTRANSPORT trans)
 
 int OnNotifierReceive(void* pPtr, LPUDPTRANSPORT trans, unsigned char* pbData, unsigned short nLen, unsigned long nPeerIP, unsigned short nPeerPort)
 {
-	0 ? logMessage(logInfo, "OnNotifierReceive, pPtr=%d, contents=%s, 0x%x, len=%d, IP=%d, port=%d", pPtr, pbData, trans, nLen, nPeerIP, nPeerPort) : 0;
+	0 ? logInfo("OnNotifierReceive, pPtr=%d, contents=%s, 0x%x, len=%d, IP=%d, port=%d", pPtr, pbData, trans, nLen, nPeerIP, nPeerPort) : 0;
 	return 0;
 }
 
 void OnNotifierSend(void* pPtr, LPUDPTRANSPORT trans, int nErrorCode)
 {
-	logMessage(logInfo, "OnNotifierSend, pPtr=%d, trans=0x%x, error=%d", pPtr, trans, nErrorCode);
+	logInfo("OnNotifierSend, pPtr=%d, trans=0x%x, error=%d", pPtr, trans, nErrorCode);
 }
 
 void OnNotifierDisconnect(void* pPtr, LPUDPTRANSPORT trans, int nErrorCode)
 {
-	logMessage(logInfo, "OnNotifierDisconnect, pPtr=%d, trans=0x%x, error=%d", pPtr, trans, nErrorCode);
+	logInfo("OnNotifierDisconnect, pPtr=%d, trans=0x%x, error=%d", pPtr, trans, nErrorCode);
 }
 
 void OnNotifierConnect(void* pPtr, LPUDPTRANSPORT trans, int nErrorCode)
 {
 	TRANSPORTSINK sink = {(void*)1030, OnNotifierConnect, OnNotifierReceive, OnNotifierSend, OnNotifierDisconnect};
-	logMessage(logInfo, "OnNotifierConnect, pPtr=%d, trans=0x%x, error=%d", pPtr, trans, nErrorCode);
+	logInfo("OnNotifierConnect, pPtr=%d, trans=0x%x, error=%d", pPtr, trans, nErrorCode);
 	if((void*)1217 == pPtr)
 		g_notifier[2] = AcceptConnection(trans, sink);
 }
@@ -1044,7 +1044,7 @@ unsigned short GetBoundPort(LPUDPTRANSPORT trans, char* ip, int iplen)
 	if(getsockname(trans->s, (struct sockaddr *)&myAddr, &myAddrLen) == SOCKET_ERROR)
 	{
 		GETERR();
-		logMessage(logError, "GetBoundPort, error=%d", err);
+		logError("GetBoundPort, error=%d", err);
 		return 0;
 	}
 
@@ -1072,7 +1072,7 @@ void CreateNotifier()
 	nBindedPort = GetBoundPort(g_notifier[0], NULL, 0);
 	if(nBindedPort > 0)
 	{
-		logMessage(logInfo, "CreateNotifier, port=%d", nBindedPort);
+		logInfo("CreateNotifier, port=%d", nBindedPort);
 		sink.pPtr = (void*)419;
 		g_notifier[1] = OpenTcpConnector("127.0.0.1", nBindedPort, sink);
 	}
@@ -1143,7 +1143,7 @@ void* serv_epoll(void * p)
 		{
 			if(errno != EINTR)
 			{
-				logMessage(logInfo, "CUdpUtil::serv_epoll, err=%d", errno);
+				logInfo("CUdpUtil::serv_epoll, err=%d", errno);
 			}
 			else
 				continue;

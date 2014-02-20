@@ -136,32 +136,61 @@ size_t GetFileSizeFD(FILEDESC fd);
 /////////////////////////////////////////////////
 //Logs
 /////////////////////////////////////////////////
+
+void logInit(const char* lpszPath);
+void logUnInit();
+void logEnableLevel(int level);
+void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...);
+
+/**
+ * DMLog enables SYSLOG,CONSOLE,MMAP,FILE log drivers, you can select them with MACRO definition, 
+ * for example, -DENABLE_DMLOG=2
+ * The behavior of different drivers is defined:
+ *   - SYSLOG(1): in windows, we use OutputDebugString, so you can use DebugView/Visual Studio to track them.
+ *             in linux, we use syslog, you can find out the log under /var/log/messages(CentOS) or /var/log/syslog(Ubuntu) or others..
+ *             in Android, it is logcat
+ *             ...
+ *   - CONSOLE(2): it just printf to console
+ *   - FILE(3): it will write directly to a file in the same folder as binary, it will not rotate and is slow when IO is not fast.
+ *   - MMAP(4): it will write to a memory map file, it needs another binary called `dmlogd` to capture them to files or any other places, for example, a server.
+ *           this method is fast, and the default `dmlogd` provided in dmUtils is very simple and will write to a rotatable file.
+ */
+
+#define LOG_DRIVER_SYSLOG   1
+#define LOG_DRIVER_CONSOLE  2
+#define LOG_DRIVER_FILE     3
+#define LOG_DRIVER_MMAP     4
 enum
 {
-	logDebug,
-	logInfo,
-	logWarning,
-	logError
+    logDebugLevel,
+    logInfoLevel,
+    logWarningLevel,
+    logErrorLevel,
+    logLevelCount
 };
 
-void InitLog(const char* lpszPath);
-void UnInitLog();
-#if defined ENABLE_DMLOG
-	#if defined ANDROID && defined ENABLE_ANDROIDLOG
+#if defined(ENABLE_DMLOG)
+	#if defined ANDROID
+        #define ENABLE_ANDROIDLOG
 		#include <utils/Log.h>
-		#define logDebug ANDROID_LOG_DEBUG
-		#define logWarning ANDROID_LOG_WARN
-		#define logInfo ANDROID_LOG_INFO
-		#define logError ANDROID_LOG_ERROR
-		#define logMessage(LEVEL,...) __android_log_print(LEVEL,__FILE__,__VA_ARGS__)
-	#elif defined __IPHONE__
-		//#define logMessage(LEVEL,msg_fmt,args...) printf("[%s %d]" msg_fmt "\n",__FILE__,__LINE__,##args)
-		#define logMessage(LEVEL,msg_fmt,args...) printf("[%d]" msg_fmt "\n",__LINE__,##args)
+    #else
+    #endif
+	#if defined(__IPHONE__) || defined(__APPLE_CC__)
+		#define logDebug(format, args...) dmLogMessage(logDebugLevel, __FILE__, __LINE__, format, ##args)
+		#define logInfo(format, args...) dmLogMessage(logInfoLevel, __FILE__, __LINE__, format, ##args)
+		#define logWarning(format, args...) dmLogMessage(logWarningLevel, __FILE__, __LINE__, format, ##args)
+		#define logError(format, args...) dmLogMessage(logErrorLevel, __FILE__, __LINE__, format, ##args)
 	#else
-		void logMessage(int level, const char *format, ...);
+		#define logDebug(format, ...) dmLogMessage(logDebugLevel, __FILE__, __LINE__, format, __VA_ARGS__)
+		#define logInfo(format, ...) dmLogMessage(logInfoLevel, __FILE__, __LINE__, format, __VA_ARGS__)
+		#define logWarning(format, ...) dmLogMessage(logWarningLevel, __FILE__, __LINE__, format, __VA_ARGS__)
+		#define logError(format, ...) dmLogMessage(logErrorLevel, __FILE__, __LINE__, format, __VA_ARGS__)
 	#endif
 #else
-	#define logMessage
+		#define logDebug(format, ...) 
+		#define logInfo(format, ...) 
+		#define logWarning(format, ...) 
+		#define logError(format, ...) 
 #endif
 
 /*

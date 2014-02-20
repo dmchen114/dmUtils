@@ -9,7 +9,7 @@ List lstMakeEmpty(List L)
 	L = (List)malloc(sizeof(struct ListHeader));
 	if(L == NULL)
 	{
-		logMessage(logError, "Out of memory!");
+		logError("Out of memory!");
 		return NULL;
 	}
 	else
@@ -93,7 +93,7 @@ void lstInsert(List L, ElementType X, Position P)
 	if(TmpCell == NULL)
 	{
 		assert(false);
-		logMessage(logInfo, "Out of space!!!");
+		logInfo("Out of space!!!");
 		return;
 	}
 

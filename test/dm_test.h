@@ -21,7 +21,7 @@ typedef int (*dmTestCase)();
 
 void dmRunTests(int argc, char **argv);
 void dmRegisterCase(char* caseId, dmTestCase f);
-void OK(bool condition, char* description); 
+void dmAssert(bool condition, char* description, char *filename, int lineno); 
 void colorPrintf(int color, const char* s);
 
 #define DECLARE_TESTCASE(x) \
@@ -30,7 +30,7 @@ void colorPrintf(int color, const char* s);
 
 
 #define RUN_ALL_CASES dmRunTests
-
+#define OK(c, d)    do {dmAssert(c, d, __FILE__, __LINE__); if(!c) return 1; } while(0);
 #ifdef __cplusplus
 }
 #endif

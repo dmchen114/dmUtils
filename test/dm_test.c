@@ -14,13 +14,18 @@ struct {
 
 map_t g_cases = NULL;
 
-int dmTestRunCase(any_t userData, char *key, any_t value)
+void runCase(CASE_DATA* cd)
 {
-    CASE_DATA *cd = (CASE_DATA*)value;
-
+    if(!cd) return;
+    printf("Run case %s:\r\n", cd->key);
     g_results.nRunned++;
     if(cd->fn())
         g_results.nFailed++;
+}
+
+int dmTestRunCase(any_t userData, char *key, any_t value)
+{
+    runCase((CASE_DATA*)value);
 
     return MAP_OK;
 }
@@ -47,11 +52,8 @@ void dmRunTests(int argc, char **argv)
     }else{
         CASE_DATA *cd = NULL;
         hashmap_get(g_cases, (char*)optargs, (any_t*)&cd);
-        if(cd && cd->fn){
-            g_results.nRunned++;
-            if(cd->fn())
-                g_results.nFailed++;
-        }
+        if(cd && cd->fn)
+            runCase(cd);
     }
     printf("\r\n_________________________________\r\n");
     printf("%d case(s) run, %d case(s) failed.\r\n", g_results.nRunned, g_results.nFailed);
@@ -92,14 +94,15 @@ void colorPrintf(int color, const char* s)
 #endif
 }
 
-void OK(bool condition, char* description)
+void dmAssert(bool condition, char* description, char *filename, int lineno)
 {
     if(condition){
-        colorPrintf(DM_COLOR_GREEN, "[PASS] ");
+        colorPrintf(DM_COLOR_GREEN, "  [PASS] ");
+        printf(description);
     }
     else{
-        colorPrintf(DM_COLOR_RED, "[FAIL] ");
+        colorPrintf(DM_COLOR_RED, "  [FAIL] ");
+        printf("%s <%s:%d>", description, dmBasename(filename), lineno);
     }
-    printf(description);
     printf("\r\n");
 }

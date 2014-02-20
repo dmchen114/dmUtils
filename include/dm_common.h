@@ -175,6 +175,7 @@ const char* optGet(const char* lname, const char sname, int hasArg, int isMust,
                    const char* desc, const char* defVal);
 void optExitOnInvalid();
 
+const char* dmBasename(char* path);
 /////////////////////////////////////////////////////////////////////
 //Parse address from format xx.xx.xx.xx:xxxx into IP and port
 /////////////////////////////////////////////////////////////////////

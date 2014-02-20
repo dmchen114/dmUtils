@@ -48,3 +48,21 @@ int test_opt()
     OK(false, "options");
     return 1;
 }
+
+int test_basename()
+{
+    const char* result = dmBasename("");
+    OK(result[0] == 0, "empty test");
+    result = dmBasename("\\");
+    OK(result[0] == 0, "empty test");
+    result = dmBasename("/");
+    OK(result[0] == 0, "empty test");
+    result = dmBasename("c:\\test\\test.cpp");
+    OK(_stricmp(result, "test.cpp") == 0, "window style test");
+    result = dmBasename("/opt/log/test.cpp");
+    OK(_stricmp(result, "test.cpp") == 0, "linux style test");
+    result = dmBasename("test.cpp");
+    OK(_stricmp(result, "test.cpp") == 0, "normal test");
+
+    return 0;
+}

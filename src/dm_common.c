@@ -454,3 +454,14 @@ unsigned long bintohex(const char *input, unsigned long len, char **out)
 	}
 	return hexlen;
 }
+
+const char* dmBasename(char* path)
+{
+    char* pos = strrchr(path, '\\');
+    if(!pos)
+        pos = strrchr(path, '/');
+
+    if(pos)
+        return pos + 1;
+    return path;
+}

@@ -213,7 +213,7 @@ void logUnInit()
 	UnInitLock(&g_LockLog);
 #if (ENABLE_DMLOG==LOG_DRIVER_SYSLOG)
   #ifdef LINUX
-    openlog(NULL, LOG_CONS|LOG_PID, LOG_USER);
+    closelog();
   #endif
 #endif
 

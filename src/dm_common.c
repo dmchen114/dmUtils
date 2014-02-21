@@ -16,17 +16,243 @@ static int g_logLevelNative[logLevelCount] = {0, 1, 2, 3};
 #endif
 static char g_logLevelString[logLevelCount] = {'D', 'I', 'W', 'E'};
 
-////////////////////////////////////////////////////////////
-//Mutex
-////////////////////////////////////////////////////////////
-void InitLock(THREAD_MUTEX_T* pLock)
+/**
+ * Mutex
+ */
+LPDM_MUTEX mutexNew(const char *name)
+{
+    LPDM_MUTEX m = NULL;
+#ifdef WIN32
+    m = CreateMutexA(NULL, FALSE, name);
+    if(m == NULL){
+        DWORD dwError = GetLastError();
+        if(dwError == ERROR_ACCESS_DENIED)
+            m = OpenMutexA(SYNCHRONIZE, FALSE, name);
+    }
+#else
+	pthread_mutexattr_t mutexattr;
+
+	pthread_mutexattr_init(&mutexattr);
+    m = (LPDM_MUTEX)malloc(sizeof(DM_MUTEX));
+    m->context = NULL;
+    if(name){
+        m->context = mmapOpen(name, sizeof(pthread_mutex_t));
+        m->mutex = (pthread_mutex_t*)m->context->data;
+        pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
+    }
+    else
+        m->mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+
+	pthread_mutex_init(m->mutex, &mutexattr);
+	pthread_mutexattr_destroy(&mutexattr);
+#endif
+    return m;
+}
+
+void mutexFree(LPDM_MUTEX m)
+{
+#ifdef WIN32
+    CloseHandle(m);
+#else
+    pthread_mutex_destroy(m->mutex);
+    if(m->context)
+        mmapClose(m->context);
+    else
+        free(m->mutex);
+    free(m);
+#endif
+}
+
+unsigned long mutexLock(LPDM_MUTEX m, int timeout)
+{
+#ifdef WIN32
+    int to = timeout > 0 ? timeout : INFINITE;
+    return WaitForSingleObject(m, to);
+#else
+    struct timespec to;
+    if(timeout > 0)
+    {
+        to.tv_sec = timeout / 1000;
+        to.tv_nsec = (timeout % 1000) * 1000000;
+    }
+    return pthread_mutex_timedlock(m->mutex, &to);
+#endif
+}
+
+void mutexUnLock(LPDM_MUTEX m)
+{
+#ifdef WIN32
+    ReleaseMutex(m);
+#else
+    pthread_mutex_unlock(m->mutex);
+#endif
+}
+
+/**
+ * Event
+ **/
+LPDM_EVENT eventNew(const char *name)
+{
+#ifdef WIN32
+    return CreateEventA(NULL, FALSE, FALSE, name);
+#else
+  	pthread_condattr_t condattr;
+  	pthread_mutexattr_t mutexattr;
+
+	pthread_condattr_init(&condattr);
+	pthread_mutexattr_init(&mutexattr);
+    e = (LPDM_EVENT)malloc(sizeof(DM_EVENT));
+    e->context = NULL;
+    if(name){
+        e->context = mmapOpen(name, sizeof(pthread_cond_t) + sizeof(pthread_mutex_t));
+        e->cond = (pthread_cond_t*)e->context->data;
+        e->mutex = (pthread_mutex_t*)(e->context->data + sizeof(pthread_cond_t)); 
+        pthread_condattr_setpshared(&condattr, PTHREAD_PROCESS_SHARED);
+        pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
+    }
+    else{
+        e->cond = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+        e->mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+    }
+	pthread_cond_init(e->cond, &condattr);
+	pthread_mutex_init(e->mutex, &mutexattr);
+	pthread_condattr_destroy(&condattr);
+	pthread_mutexattr_destroy(&mutexattr);
+    return e;
+#endif
+}
+
+void eventFree(LPDM_EVENT e)
+{
+#ifdef WIN32
+    CloseHandle(e);
+#else
+    pthread_cond_destroy(e->cond);
+    pthread_mutex_destroy(e->mutex);
+    if(e->context)
+        mmapClose(e->context);
+    else{
+        free(e->mutex);
+        free(e->cond);
+    }
+    free(e);
+#endif
+}
+
+void eventSignal(LPDM_EVENT e)
+{
+#ifdef WIN32
+    SetEvent(e);
+#else
+    pthread_cond_broadcast(e->cond);
+#endif
+}
+
+/*timeout in milliseconds, -1 for infinite.*/
+unsigned long eventWait(LPDM_EVENT e, int timeout)
+{
+#ifdef WIN32
+    int to = timeout > 0 ? timeout : INFINITE;
+    return WaitForSingleObject(e, to);
+#else
+    struct timespec to;
+    if(timeout > 0)
+    {
+        to.tv_sec = timeout / 1000;
+        to.tv_nsec = (timeout % 1000) * 1000000;
+    }
+    pthread_cond_timedwait(e->cond, e->mutex, &to);
+#endif
+}
+
+/**
+ * MMAP
+ */
+LPDM_MMAP mmapOpen(const char *path, unsigned long size)
+{
+    LPDM_MMAP m;
+    m = (LPDM_MMAP)malloc(sizeof(DM_MMAP));
+#ifdef WIN32
+    m->map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, size, path);
+    if(m->map == INVALID_HANDLE_VALUE)
+    {
+        printf("Failed to create file mapping");
+        free(m);
+        return NULL;
+    }
+    m->data = MapViewOfFile(m->map, FILE_MAP_ALL_ACCESS, 0, 0, size);
+    m->size = size;
+#else
+    fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0666);
+    if(fd < 0){
+        printf("Failed to create file from path.");
+        free(m);
+        return (NULL);
+    }
+    m->data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    m->size = size;
+    close (fd);
+    if(size > sizeof(unsigned long)){
+        unsigned long *filepos = (unsigned long*)m->data;
+        *filepos = sizeof(unsigned long);
+    }
+#endif
+    return m;
+}
+
+void mmapClose(LPDM_MMAP m)
+{
+#ifdef WIN32
+    UnmapViewOfFile(m->data);
+    CloseHandle(m->map);
+#else
+    munmap(m->data, m->size);
+#endif
+    free(m);
+}
+
+/*
+int mmapRead(LPDM_MMAP m, char *buffer, unsigned long len)
+{
+#ifdef WIN32
+#else
+    unsigned long *filepos = (unsigned long *)m->data;
+    memcpy_s(buffer, len, m->data + m->rpos, len);
+    m->rpos += len;
+
+    return len;
+#endif
+}
+
+int mmapWrite(LPDM_MMAP m, const char *buffer, unsigned long len)
+{
+#ifdef WIN32
+#else
+    unsigned long *filepos = (unsigned long *)m->data;
+
+    if(len + *filepos > m->size)    //buffer rotated now.
+    {
+        memset(m->data + *filepos, 0, m->size - *filepos);
+        *filelen = sizeof(unsigned long);
+    }
+    memcpy_s(m->data + *filepos, m->size - *filepos, buffer, len);
+    *filepos += len;
+    return len;
+#endif
+}
+*/
+
+/**
+ * Lock
+ */
+void InitLock(DM_LOCK_T* pLock)
 {
 #ifdef WIN32
 	InitializeCriticalSection(pLock);
 #else
 	pthread_mutexattr_t mutexattr;
 	pthread_mutexattr_init(&mutexattr);
-#if !defined CM_SOLARIS && !defined MachOSupport 
+#if !defined __APPLE_CC__ 
 	pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE_NP);
 #else
 	pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE);
@@ -36,7 +262,7 @@ void InitLock(THREAD_MUTEX_T* pLock)
 #endif
 }
 
-void UnInitLock(THREAD_MUTEX_T* pLock)
+void UnInitLock(DM_LOCK_T* pLock)
 {
 #ifdef WIN32
 	DeleteCriticalSection(pLock);
@@ -45,7 +271,7 @@ void UnInitLock(THREAD_MUTEX_T* pLock)
 #endif // CM_WIN32
 }
 
-void Lock(THREAD_MUTEX_T* pLock)
+void Lock(DM_LOCK_T* pLock)
 {
 #ifdef WIN32
 	EnterCriticalSection(pLock);
@@ -54,7 +280,7 @@ void Lock(THREAD_MUTEX_T* pLock)
 #endif
 }
 
-void UnLock(THREAD_MUTEX_T* pLock)
+void UnLock(DM_LOCK_T* pLock)
 {
 #ifdef WIN32
 	LeaveCriticalSection(pLock);
@@ -173,7 +399,7 @@ size_t GetFileSizeFD(FILEDESC fd)
 ////////////////////////////////////////////////////////////
 //Log
 ////////////////////////////////////////////////////////////
-THREAD_MUTEX_T g_LockLog;
+DM_LOCK_T g_LockLog;
 int g_logLevel = -1;
 FILE *g_hLogFile = NULL;
 
@@ -276,7 +502,6 @@ void dmLogMessage(int level, const char* filename, int lineno, const char *forma
 #elif defined(ANDROID)
     __android_log_vprint(g_logLevelNative[level], dmBaseName(filename), format, ap);
 #elif defined(LINUX)
-
     vsyslog(g_logLevelNative[level], format, ap);
 #elif defined(__IPHONE__)
     FORMAT_STRING();

@@ -12,7 +12,15 @@
 typedef int socklen_t;
 typedef SOCKET Socket;
 extern HINSTANCE g_hInstance;
-typedef CRITICAL_SECTION THREAD_MUTEX_T;
+typedef CRITICAL_SECTION DM_LOCK_T;
+typedef HANDLE LPDM_MUTEX;
+typedef HANDLE LPDM_EVENT;
+typedef HANDLE LPDM_SEMAPHORE;
+typedef struct {
+    HANDLE map;
+    void *data;
+    unsigned long size;
+}DM_MMAP, *LPDM_MMAP;
 typedef unsigned int size_t;
 typedef HANDLE FILEDESC;
 #define THREAD_LOCAL __declspec(thread)
@@ -63,7 +71,25 @@ typedef char bool;
 #define Socket int
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
-typedef pthread_mutex_t THREAD_MUTEX_T;
+typedef pthread_mutex_t DM_LOCK_T;
+typedef struct {
+    void *data;
+    unsigned long size;
+}DM_MMAP, *LPDM_MMAP;
+typedef struct{
+    pthread_mutex_t *mutex;
+    LPDM_MMAP *context;
+}DM_MUTEX, *LPDM_MUTEX;
+typedef struct{
+    pthread_cond_t *cond;
+    pthread_mutex_t *mutex;
+    LPDM_MMAP *context;
+}DM_EVENT, *LPDM_EVENT;
+typedef struct{
+    sem_t * sem;
+    LPDM_MMAP *context;
+}DM_SEMAPHORE, *LPDM_SEMAPHORE;
+
 typedef int FILEDESC;
 #define THREAD_LOCAL __thread
 
@@ -116,27 +142,50 @@ typedef int FILEDESC;
 extern "C" {
 #endif
 
-/////////////////////////////////////////////////
-//Mutex
-/////////////////////////////////////////////////
-void InitLock(THREAD_MUTEX_T* pLock);
-void Lock(THREAD_MUTEX_T* pLock);
-void UnLock(THREAD_MUTEX_T* pLock);
-void UnInitLock(THREAD_MUTEX_T* pLock);
+/**
+ * Mutex
+ */
+LPDM_MUTEX mutexNew(const char *name);
+void mutexFree(LPDM_MUTEX m);
+/*timeout in milliseconds, -1 for infinite.*/
+unsigned long mutexLock(LPDM_MUTEX m, int timeout);
+void mutexUnLock(LPDM_MUTEX m);
 
-////////////////////////////////
-//File IO
-////////////////////////////////
+/**
+ * Event
+ **/
+LPDM_EVENT eventNew(const char *name);
+void eventFree(LPDM_EVENT e);
+void eventSignal(LPDM_EVENT e);
+/*timeout in milliseconds, -1 for infinite.*/
+unsigned long eventWait(LPDM_EVENT e, int timeout);
+
+/**
+ *Lock
+ */
+void InitLock(DM_LOCK_T* pLock);
+void Lock(DM_LOCK_T* pLock);
+void UnLock(DM_LOCK_T* pLock);
+void UnInitLock(DM_LOCK_T* pLock);
+
+/**
+ *Memory Map
+ */
+LPDM_MMAP mmapOpen(const char *path, unsigned long size);
+void mmapClose(LPDM_MMAP m);
+
+/**
+ * File IO
+ */
 FILEDESC OpenFD(const char* fileName, const char *mode);
 void CloseFD(FILEDESC fd);
 int ReadFD(FILEDESC fd, char *pData, size_t nLen);
 int WriteFD(FILEDESC fd, char *pData, size_t nLen);
 size_t GetFileSizeFD(FILEDESC fd);
 
-/////////////////////////////////////////////////
-//Logs
-/////////////////////////////////////////////////
-
+/**
+ * Logs
+ */
 void logInit(const char* lpszPath);
 void logUnInit();
 void logEnableLevel(int level);

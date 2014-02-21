@@ -19,7 +19,7 @@ typedef struct ListHeader
 	Position Next;
 	Position End;
 	size_t uSize;
-	THREAD_MUTEX_T lock;
+	DM_LOCK_T lock;
 }*List;
 
 #ifdef __cplusplus

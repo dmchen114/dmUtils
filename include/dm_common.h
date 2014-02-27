@@ -250,6 +250,7 @@ enum
 #if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
 int mmapLogWrite(const char *buffer, uint16_t len);
 int mmapLogReadLine(char *buffer, uint16_t len);
+int mmapLogWaitEvent(int timeout);
 #endif
 
 /*

@@ -190,7 +190,6 @@ void logInit(const char* lpszPath);
 void logUnInit();
 void logEnableLevel(int level);
 void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...);
-
 /**
  * DMLog enables SYSLOG,CONSOLE,FILE, MMAP log drivers, you can select them with MACRO definition, 
  * for example, -DENABLE_DMLOG=2
@@ -246,6 +245,11 @@ enum
 		#define logInfo(...) 
 		#define logWarning(...) 
 		#define logError(...) 
+#endif
+
+#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+int mmapLogWrite(const char *buffer, uint16_t len);
+int mmapLogReadLine(char *buffer, uint16_t len);
 #endif
 
 /*

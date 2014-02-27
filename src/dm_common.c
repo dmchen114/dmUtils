@@ -1,8 +1,31 @@
 #include "dm_common.h"
 
-#if defined(ENABLE_DMLOG) && (ENABLE_DMLOG > LOG_DRIVER_FILE)
+#if defined(ENABLE_DMLOG) && (ENABLE_DMLOG > LOG_DRIVER_MMAP)
     #undef ENABLE_DMLOG
     #define ENABLE_DMLOG LOG_DRIVER_SYSLOG
+#endif
+
+#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+typedef struct {
+    uint64_t magic_code;    //Set to MAGIC value to mark it has been initialized.
+    unsigned long writepos;
+    unsigned long endpos;
+}MMAP_FILE_HEADER;
+
+#define LOG_MMAP_MAGIC_CODE 0x1AA901C671163914ULL
+
+typedef struct{
+    LPDM_MMAP handle;
+    LPDM_MUTEX mutex;
+    LPDM_EVENT event;
+    unsigned long readpos;
+}MMAP_LOG_FILE;
+
+MMAP_LOG_FILE g_mmap_log;
+#define NAMED_MUTEX_PATH    "/tmp/dm_log_mutex"
+#define NAMED_EVENT_PATH    "/tmp/dm_log_event"
+#define NAMED_MMAP_PATH     "/tmp/dm_log_mmap"
+#define MMAP_LOG_FILE_SIZE  41943040    //40M
 #endif
 
 #if defined(ANDROID)
@@ -211,36 +234,67 @@ void mmapClose(LPDM_MMAP m)
     free(m);
 }
 
-/*
-int mmapRead(LPDM_MMAP m, char *buffer, unsigned long len)
+#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+int mmapLogWrite(const char *buffer, uint16_t len)
 {
-#ifdef WIN32
-#else
-    unsigned long *filepos = (unsigned long *)m->data;
-    memcpy_s(buffer, len, m->data + m->rpos, len);
-    m->rpos += len;
-
-    return len;
-#endif
-}
-
-int mmapWrite(LPDM_MMAP m, const char *buffer, unsigned long len)
-{
-#ifdef WIN32
-#else
-    unsigned long *filepos = (unsigned long *)m->data;
-
-    if(len + *filepos > m->size)    //buffer rotated now.
+    MMAP_FILE_HEADER *hd;
+    char *mdata;
+    mutexLock(g_mmap_log.mutex, -1);
+    hd = (MMAP_FILE_HEADER*)g_mmap_log.handle->data;
+    mdata = (char*)g_mmap_log.handle->data;
+    if(len + hd->writepos + sizeof(uint16_t) > g_mmap_log.handle->size)    //We now rotate
     {
-        memset(m->data + *filepos, 0, m->size - *filepos);
-        *filelen = sizeof(unsigned long);
+        hd->endpos = hd->writepos;
+        hd->writepos = sizeof(MMAP_FILE_HEADER);
     }
-    memcpy_s(m->data + *filepos, m->size - *filepos, buffer, len);
-    *filepos += len;
+    *((short*)mdata + hd->writepos) = len;
+    memcpy_s(mdata + hd->writepos + sizeof(uint16_t), g_mmap_log.handle->size, buffer, len);
+    hd->writepos += len + sizeof(uint16_t);
+    if(hd->writepos > hd->endpos)
+        hd->endpos = sizeof(MMAP_FILE_HEADER);
+    mutexUnLock(g_mmap_log.mutex);
+    eventSignal(g_mmap_log.event);
+
     return len;
-#endif
 }
-*/
+
+int mmapLogReadLine(char *buffer, uint16_t len)
+{
+    MMAP_FILE_HEADER *hd;
+    char *mdata;
+    unsigned long rpos;
+    uint16_t rlen;
+    mutexLock(g_mmap_log.mutex, -1);
+    hd = (MMAP_FILE_HEADER*)g_mmap_log.handle->data;
+    mdata = (char*)g_mmap_log.handle->data;
+    rpos = g_mmap_log.readpos;
+    if(rpos == hd->writepos && hd->endpos == sizeof(MMAP_FILE_HEADER))
+        rlen = -2;
+    else
+        rlen = *((uint16_t*)(mdata + rpos));
+
+    if(rlen > 0 && len > rlen)
+    {
+        memcpy_s(buffer, len, mdata + rpos + sizeof(uint16_t), rlen);
+        rpos += (rlen + sizeof(uint16_t));
+        if(rpos < hd->writepos){
+            g_mmap_log.readpos = rpos;
+        }
+        else{
+            if(rpos < hd->endpos)
+                g_mmap_log.readpos = rpos;
+            else
+                g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
+        }
+    }
+    else if(rlen > 0)
+        rlen = -1;
+
+    mutexUnLock(g_mmap_log.mutex);
+
+    return rlen;
+}
+#endif
 
 /**
  * Lock
@@ -414,7 +468,25 @@ void logInit(const char* lpszPath)
 #if (ENABLE_DMLOG==LOG_DRIVER_FILE)
 	g_hLogFile = fopen(lpszPath, "w+t");
 #endif
+#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+    g_mmap_log.event = eventNew(NAMED_EVENT_PATH);
+    g_mmap_log.mutex = mutexNew(NAMED_MUTEX_PATH);
+    g_mmap_log.handle = mmapOpen(NAMED_MMAP_PATH, MMAP_LOG_FILE_SIZE);
 
+    do{
+        MMAP_FILE_HEADER *hd;
+        mutexLock(g_mmap_log.mutex, -1);
+        g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
+        hd = (MMAP_FILE_HEADER*)g_mmap_log.handle->data;
+        if(hd->magic_code != LOG_MMAP_MAGIC_CODE){
+            printf("It is the first process to create the memory map!\r\n");
+            hd->magic_code = LOG_MMAP_MAGIC_CODE;
+            hd->writepos = sizeof(MMAP_FILE_HEADER);
+            hd->endpos = sizeof(MMAP_FILE_HEADER);
+        }
+        mutexUnLock(g_mmap_log.mutex);
+    }while(0);
+#endif
 #if (ENABLE_DMLOG==LOG_DRIVER_SYSLOG)
   #ifdef LINUX
     openlog(NULL, LOG_CONS|LOG_PID, LOG_USER);
@@ -441,6 +513,12 @@ void logUnInit()
   #ifdef LINUX
     closelog();
   #endif
+#endif
+
+#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+    eventFree(g_mmap_log.event);
+    mutexFree(g_mmap_log.mutex);
+    mmapClose(g_mmap_log.handle);
 #endif
 
 #endif
@@ -480,7 +558,7 @@ int dmLogFormatHeader(char *buffer, int nSize, int level)
     nWritten = dmLogFormatHeader(s_buffer, 2046, level);    \
     nWritten += vsprintf_s(s_buffer + nWritten, 2046 - nWritten, format, ap);   \
     s_buffer[nWritten++] = '\n'; \
-    s_buffer[nWritten++] = '\0'; \
+    s_buffer[nWritten] = '\0'; \
 
 
 void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...)
@@ -515,12 +593,14 @@ void dmLogMessage(int level, const char* filename, int lineno, const char *forma
 #endif
 
 #if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+    FORMAT_STRING();
+    mmapLogWrite(s_buffer, nWritten);
 #endif
 
 #if (ENABLE_DMLOG == LOG_DRIVER_FILE)
 	if(g_hLogFile != NULL){
         FORMAT_STRING();
-        fwrite(s_buffer, sizeof(char), nWritten - 1, g_hLogFile);
+        fwrite(s_buffer, sizeof(char), nWritten, g_hLogFile);
 	    fflush(g_hLogFile);
     }
 #endif

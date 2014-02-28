@@ -6,7 +6,9 @@
 #endif
 
 #if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+#ifdef LINUX
 #include <sys/mman.h>
+#endif
 typedef struct {
     uint64_t magic_code;    //Set to MAGIC value to mark it has been initialized.
     unsigned long writepos;

@@ -117,7 +117,8 @@ void mutexUnLock(LPDM_MUTEX m)
 LPDM_EVENT eventNew(const char *name)
 {
 #ifdef WIN32
-    return CreateEventA(NULL, FALSE, FALSE, name);
+    LPDM_EVENT evt = CreateEventA(NULL, FALSE, FALSE, name);
+    return evt;
 #else
   	pthread_condattr_t condattr;
   	pthread_mutexattr_t mutexattr;
@@ -277,15 +278,10 @@ int mmapLogReadLine(char *buffer, uint16_t len)
     {
         memcpy_s(buffer, len, mdata + rpos + sizeof(uint16_t), rlen);
         rpos += (rlen + sizeof(uint16_t));
-        if(rpos < hd->writepos){
+        if(hd->endpos > hd->writepos && rpos >= hd->endpos)
+            g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
+        else
             g_mmap_log.readpos = rpos;
-        }
-        else{
-            if(rpos < hd->endpos)
-                g_mmap_log.readpos = rpos;
-            else
-                g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
-        }
     }
     else if(rlen > 0)
         rlen = -1;

@@ -6,6 +6,7 @@
 #endif
 
 #if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
+#include <sys/mman.h>
 typedef struct {
     uint64_t magic_code;    //Set to MAGIC value to mark it has been initialized.
     unsigned long writepos;
@@ -116,9 +117,10 @@ void mutexUnLock(LPDM_MUTEX m)
  **/
 LPDM_EVENT eventNew(const char *name)
 {
+    LPDM_EVENT e;
 #ifdef WIN32
-    LPDM_EVENT evt = CreateEventA(NULL, FALSE, FALSE, name);
-    return evt;
+    e = CreateEventA(NULL, FALSE, FALSE, name);
+    return e;
 #else
   	pthread_condattr_t condattr;
   	pthread_mutexattr_t mutexattr;
@@ -207,7 +209,7 @@ LPDM_MMAP mmapOpen(const char *path, unsigned long size)
     m->data = MapViewOfFile(m->map, FILE_MAP_ALL_ACCESS, 0, 0, size);
     m->size = size;
 #else
-    fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0666);
+    int fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0666);
     if(fd < 0){
         printf("Failed to create file from path.");
         free(m);

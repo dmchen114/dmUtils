@@ -83,16 +83,16 @@ typedef struct {
 }DM_MMAP, *LPDM_MMAP;
 typedef struct{
     pthread_mutex_t *mutex;
-    LPDM_MMAP *context;
+    LPDM_MMAP context;
 }DM_MUTEX, *LPDM_MUTEX;
 typedef struct{
     pthread_cond_t *cond;
     pthread_mutex_t *mutex;
-    LPDM_MMAP *context;
+    LPDM_MMAP context;
 }DM_EVENT, *LPDM_EVENT;
 typedef struct{
-    sem_t * sem;
-    LPDM_MMAP *context;
+    struct sem_t * sem;
+    LPDM_MMAP context;
 }DM_SEMAPHORE, *LPDM_SEMAPHORE;
 
 typedef int FILEDESC;

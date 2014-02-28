@@ -173,7 +173,9 @@ void eventSignal(LPDM_EVENT e)
 #ifdef WIN32
     SetEvent(e);
 #else
+    pthread_mutex_lock(e->mutex);
     pthread_cond_broadcast(e->cond);
+    pthread_mutex_unlock(e->mutex);
 #endif
 }
 
@@ -185,6 +187,7 @@ unsigned long eventWait(LPDM_EVENT e, int timeout)
     return WaitForSingleObject(e, to);
 #else
     struct timespec to;
+    pthread_mutex_lock(e->mutex);
     if(timeout > 0)
     {
         to.tv_sec = timeout / 1000;
@@ -192,8 +195,9 @@ unsigned long eventWait(LPDM_EVENT e, int timeout)
         pthread_cond_timedwait(e->cond, e->mutex, &to);
     }
     else{
-         pthread_cond_wait(e->cond, e->mutex);
+        pthread_cond_wait(e->cond, e->mutex);
     }
+    pthread_mutex_unlock(e->mutex);
 #endif
 }
 

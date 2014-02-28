@@ -42,6 +42,17 @@ static int g_logLevelNative[logLevelCount] = {0, 1, 2, 3};
 #endif
 static char g_logLevelString[logLevelCount] = {'D', 'I', 'W', 'E'};
 
+#ifdef LINUX
+int shm_exist(const char *name)
+{
+    int fd = shm_open(name, O_CREAT | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
+    if(fd <= 0)
+        return 1;
+    close(fd);
+    return 0;
+}
+#endif
+
 /**
  * Mutex
  */
@@ -62,8 +73,12 @@ LPDM_MUTEX mutexNew(const char *name)
     m = (LPDM_MUTEX)malloc(sizeof(DM_MUTEX));
     m->context = NULL;
     if(name){
+        int mutexexist = 0;
+        mutexexist = shm_exist(name);
         m->context = mmapOpen(name, sizeof(pthread_mutex_t));
         m->mutex = (pthread_mutex_t*)m->context->data;
+        if(mutexexist)
+            return m;
         pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
     }
     else
@@ -80,11 +95,13 @@ void mutexFree(LPDM_MUTEX m)
 #ifdef WIN32
     CloseHandle(m);
 #else
-    pthread_mutex_destroy(m->mutex);
     if(m->context)
         mmapClose(m->context);
     else
+    {
+        pthread_mutex_destroy(m->mutex);
         free(m->mutex);
+    }
     free(m);
 #endif
 }
@@ -133,9 +150,13 @@ LPDM_EVENT eventNew(const char *name)
     e = (LPDM_EVENT)malloc(sizeof(DM_EVENT));
     e->context = NULL;
     if(name){
+        int mutexexist = 0;
+        mutexexist = shm_exist(name);
         e->context = mmapOpen(name, sizeof(pthread_cond_t) + sizeof(pthread_mutex_t));
         e->cond = (pthread_cond_t*)e->context->data;
-        e->mutex = (pthread_mutex_t*)(e->context->data + sizeof(pthread_cond_t)); 
+        e->mutex = (pthread_mutex_t*)(e->cond + 1);
+        if(mutexexist)
+            return e; 
         pthread_condattr_setpshared(&condattr, PTHREAD_PROCESS_SHARED);
         pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
     }
@@ -156,11 +177,11 @@ void eventFree(LPDM_EVENT e)
 #ifdef WIN32
     CloseHandle(e);
 #else
-    pthread_cond_destroy(e->cond);
-    pthread_mutex_destroy(e->mutex);
     if(e->context)
         mmapClose(e->context);
     else{
+        pthread_cond_destroy(e->cond);
+        pthread_mutex_destroy(e->mutex);
         free(e->mutex);
         free(e->cond);
     }
@@ -173,9 +194,7 @@ void eventSignal(LPDM_EVENT e)
 #ifdef WIN32
     SetEvent(e);
 #else
-    pthread_mutex_lock(e->mutex);
     pthread_cond_broadcast(e->cond);
-    pthread_mutex_unlock(e->mutex);
 #endif
 }
 
@@ -187,7 +206,6 @@ unsigned long eventWait(LPDM_EVENT e, int timeout)
     return WaitForSingleObject(e, to);
 #else
     struct timespec to;
-    pthread_mutex_lock(e->mutex);
     if(timeout > 0)
     {
         to.tv_sec = timeout / 1000;
@@ -197,7 +215,6 @@ unsigned long eventWait(LPDM_EVENT e, int timeout)
     else{
         pthread_cond_wait(e->cond, e->mutex);
     }
-    pthread_mutex_unlock(e->mutex);
 #endif
 }
 

@@ -25,9 +25,9 @@ typedef struct{
 }MMAP_LOG_FILE;
 
 MMAP_LOG_FILE g_mmap_log;
-#define NAMED_MUTEX_PATH    "dm_log_mutex"
-#define NAMED_EVENT_PATH    "dm_log_event"
-#define NAMED_MMAP_PATH     "dm_log_mmap"
+#define NAMED_MUTEX_PATH        "dm_log_mutex"
+#define NAMED_EVENT_PATH        "dm_log_event"
+#define NAMED_MMAP_PATH         "dm_log_mmap"
 #define MMAP_LOG_FILE_SIZE  41943040    //40M
 #endif
 
@@ -100,8 +100,9 @@ unsigned long mutexLock(LPDM_MUTEX m, int timeout)
     {
         to.tv_sec = timeout / 1000;
         to.tv_nsec = (timeout % 1000) * 1000000;
+        return pthread_mutex_timedlock(m->mutex, &to);
     }
-    return pthread_mutex_timedlock(m->mutex, &to);
+    return pthread_mutex_lock(m->mutex);
 #endif
 }
 
@@ -188,8 +189,11 @@ unsigned long eventWait(LPDM_EVENT e, int timeout)
     {
         to.tv_sec = timeout / 1000;
         to.tv_nsec = (timeout % 1000) * 1000000;
+        pthread_cond_timedwait(e->cond, e->mutex, &to);
     }
-    pthread_cond_timedwait(e->cond, e->mutex, &to);
+    else{
+         pthread_cond_wait(e->cond, e->mutex);
+    }
 #endif
 }
 

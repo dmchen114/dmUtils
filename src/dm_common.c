@@ -577,7 +577,7 @@ int dmLogFormatHeader(char *buffer, int nSize, int level)
 			         tmVar.tm_mon + 1, tmVar.tm_mday, (tmVar.tm_year + 1900) % 100,
 			         tmVar.tm_hour, tmVar.tm_min, tmVar.tm_sec,
 			         timeVal.tv_usec / 1000,
-			         getpid(), (int)syscall(224), g_logLevelString[level]);
+			         getpid(), (int)syscall(SYS_gettid), g_logLevelString[level]);
 #endif
 }
 

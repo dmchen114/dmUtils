@@ -25,9 +25,9 @@ typedef struct{
 }MMAP_LOG_FILE;
 
 MMAP_LOG_FILE g_mmap_log;
-#define NAMED_MUTEX_PATH    "/tmp/dm_log_mutex"
-#define NAMED_EVENT_PATH    "/tmp/dm_log_event"
-#define NAMED_MMAP_PATH     "/tmp/dm_log_mmap"
+#define NAMED_MUTEX_PATH    "dm_log_mutex"
+#define NAMED_EVENT_PATH    "dm_log_event"
+#define NAMED_MMAP_PATH     "dm_log_mmap"
 #define MMAP_LOG_FILE_SIZE  41943040    //40M
 #endif
 
@@ -211,19 +211,16 @@ LPDM_MMAP mmapOpen(const char *path, unsigned long size)
     m->data = MapViewOfFile(m->map, FILE_MAP_ALL_ACCESS, 0, 0, size);
     m->size = size;
 #else
-    int fd = open(path, O_RDWR | O_CREAT | O_EXCL, 0666);
+    int fd = shm_open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if(fd < 0){
         printf("Failed to create file from path.");
         free(m);
         return (NULL);
     }
+    ftruncate(fd, size);
     m->data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     m->size = size;
     close (fd);
-    if(size > sizeof(unsigned long)){
-        unsigned long *filepos = (unsigned long*)m->data;
-        *filepos = sizeof(unsigned long);
-    }
 #endif
     return m;
 }

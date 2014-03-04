@@ -481,9 +481,9 @@ size_t fileGetSize(FILEDESC fd)
 void fileFlush(FILEDESC fd)
 {
 #ifndef WIN32
-    fflush(fd);
+    fsync(fd);
 #else
-
+    FlushFileBuffers(fd);
 #endif
 }
 

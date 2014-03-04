@@ -429,7 +429,7 @@ FILEDESC fileOpen(const char* fileName, const char *mode)
 	if(bTrunc)
 		nMode |= O_TRUNC;
 
-	return open(fileName, nMode);
+	return open(fileName, nMode, 0640);
 #endif
 }
 

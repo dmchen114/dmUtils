@@ -16,7 +16,7 @@ void saveLog(char *buffer, int nSize)
     	SYSTEMTIME wtm;
 	    GetLocalTime(&wtm);
         sprintf_s(szFileName, 1024, "%s/messages_%02d_%02d_%04d_%d.log", g_savedpath, wtm.wMonth, wtm.wDay, 
-            wtm.wYear % 100, g_pagenum);
+            wtm.wYear, g_pagenum);
 #else
 	    struct timeval timeVal;
 	    struct tm tmVar;
@@ -24,7 +24,7 @@ void saveLog(char *buffer, int nSize)
 	    gettimeofday(&timeVal, NULL);
 	    localtime_r((const time_t*)&timeVal.tv_sec, &tmVar);
         sprintf_s(szFileName, 1024, "%s/messages_%02d_%02d_%04d_%d.log", g_savedpath, tmVar.tm_mon + 1, 
-            tmVar.tm_mday, (tmVar.tm_year + 1900) % 100, g_pagenum);
+            tmVar.tm_mday, (tmVar.tm_year + 1900), g_pagenum);
 #endif
         
         g_file = fileOpen(szFileName, "w");

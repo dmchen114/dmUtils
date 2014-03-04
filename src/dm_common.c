@@ -373,7 +373,7 @@ void UnLock(DM_LOCK_T* pLock)
 ///////////////////////////////
 //File IO
 ///////////////////////////////
-FILEDESC OpenFD(const char* fileName, const char *mode)
+FILEDESC fileOpen(const char* fileName, const char *mode)
 {
 	FILEDESC fd = (FILEDESC) -1;
 	int bRead = 0, bWrite = 0, bTrunc = 0, nModeLen = 3, i;
@@ -414,7 +414,8 @@ FILEDESC OpenFD(const char* fileName, const char *mode)
 		dwCreationDisposition = OPEN_ALWAYS;
 	}
 
-	return CreateFile(fileName, nMode, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, dwCreationDisposition, 0, NULL);
+	return CreateFile(fileName, nMode, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, 
+        dwCreationDisposition, 0, NULL);
 #else
 	UNUSED(dwCreationDisposition);
 	if(bRead && !bWrite)
@@ -432,7 +433,7 @@ FILEDESC OpenFD(const char* fileName, const char *mode)
 #endif
 }
 
-void CloseFD(FILEDESC fd)
+void fileClose(FILEDESC fd)
 {
 #ifdef WIN32
 	CloseHandle(fd);
@@ -441,7 +442,7 @@ void CloseFD(FILEDESC fd)
 #endif
 }
 
-int ReadFD(FILEDESC fd, char *pData, size_t nLen)
+int fileRead(FILEDESC fd, char *pData, size_t nLen)
 {
 #ifdef WIN32
 	DWORD dwRead = 0;
@@ -453,7 +454,7 @@ int ReadFD(FILEDESC fd, char *pData, size_t nLen)
 #endif
 }
 
-int WriteFD(FILEDESC fd, char *pData, size_t nLen)
+int fileWrite(FILEDESC fd, char *pData, size_t nLen)
 {
 #ifdef WIN32
 	DWORD dwWritten = 0;
@@ -465,7 +466,7 @@ int WriteFD(FILEDESC fd, char *pData, size_t nLen)
 #endif
 }
 
-size_t GetFileSizeFD(FILEDESC fd)
+size_t fileGetSize(FILEDESC fd)
 {
 #ifndef WIN32
 	struct stat buf;
@@ -474,6 +475,15 @@ size_t GetFileSizeFD(FILEDESC fd)
 	return buf.st_size;
 #else
 	return GetFileSize(fd, NULL);
+#endif
+}
+
+void fileFlush(FILEDESC fd)
+{
+#ifndef WIN32
+    fflush(fd);
+#else
+
 #endif
 }
 
@@ -767,25 +777,6 @@ void optExitOnInvalid()
         exit(0);
     }
     optFreeOptions();
-}
-
-char* FindParamFromCmdLine(const char* key, int argc, char** argv)
-{
-	int i = 0;
-	char* ret = NULL;
-
-	for(i = 0; i < argc; i++)
-	{
-		printf((const char*)argv[i]);
-		if(_stricmp(argv[i], key) == 0)
-		{
-			if(++i < argc && argv[i][0] != '-')
-			{
-				ret = argv[i];
-			}
-		}
-	}
-	return ret;
 }
 
 void ParseAddr(unsigned char* szIn, unsigned short* pPort, char* pIP, int nIPLen)

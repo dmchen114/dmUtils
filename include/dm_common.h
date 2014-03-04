@@ -23,6 +23,7 @@ typedef struct {
 }DM_MMAP, *LPDM_MMAP;
 typedef unsigned int size_t;
 typedef HANDLE FILEDESC;
+#define NULL_FILE_DESC   NULL
 #define THREAD_LOCAL __declspec(thread)
 #ifndef __cplusplus
 typedef char bool;
@@ -95,7 +96,8 @@ typedef struct{
     LPDM_MMAP context;
 }DM_SEMAPHORE, *LPDM_SEMAPHORE;
 
-typedef int FILEDESC;
+typedef int FILEDESC
+#define NULL_FILE_DESC  0
 #define THREAD_LOCAL __thread
 
 #ifndef min
@@ -187,11 +189,12 @@ void mmapClose(LPDM_MMAP m);
 /**
  * File IO
  */
-FILEDESC OpenFD(const char* fileName, const char *mode);
-void CloseFD(FILEDESC fd);
-int ReadFD(FILEDESC fd, char *pData, size_t nLen);
-int WriteFD(FILEDESC fd, char *pData, size_t nLen);
-size_t GetFileSizeFD(FILEDESC fd);
+FILEDESC fileOpen(const char* fileName, const char *mode);
+void fileClose(FILEDESC fd);
+int fileRead(FILEDESC fd, char *pData, size_t nLen);
+int fileWrite(FILEDESC fd, char *pData, size_t nLen);
+void fileFlush(FILEDESC fd);
+size_t fileGetSize(FILEDESC fd);
 
 /**
  * Logs

@@ -96,7 +96,7 @@ typedef struct{
     LPDM_MMAP context;
 }DM_SEMAPHORE, *LPDM_SEMAPHORE;
 
-typedef int FILEDESC
+typedef int FILEDESC;
 #define NULL_FILE_DESC  0
 #define THREAD_LOCAL __thread
 
@@ -289,8 +289,6 @@ unsigned long bintohex(const char *input, unsigned long len, char **out);
 }
 #endif
 
-#define P2P_PORT			17600
-#define SERVER_CAPACITY		2048
 #define UNUSED(x) (void)(x)
 #define FREEBUF(x) if(x){ free(x); (x) = NULL;}
 

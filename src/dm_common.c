@@ -28,7 +28,7 @@ MMAP_LOG_FILE g_mmap_log;
 #define NAMED_MUTEX_PATH        "dm_log_mutex"
 #define NAMED_EVENT_PATH        "dm_log_event"
 #define NAMED_MMAP_PATH         "dm_log_mmap"
-#define MMAP_LOG_FILE_SIZE  41943040    //40M
+#define MMAP_LOG_FILE_SIZE      41943040    //40M
 #endif
 
 #if defined(ANDROID)
@@ -298,16 +298,18 @@ int mmapLogReadLine(char *buffer, uint16_t len)
     if(rpos == hd->writepos)
         rlen = -2;
     else
+    {
+        if(hd->endpos > hd->writepos && rpos >= hd->endpos)
+            rpos = g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
+
         rlen = *((uint16_t*)(mdata + rpos));
+    }
 
     if(rlen > 0 && len > rlen)
     {
         memcpy_s(buffer, len, mdata + rpos + sizeof(uint16_t), rlen);
         rpos += (rlen + sizeof(uint16_t));
-        if(rpos >= hd->endpos)
-            g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
-        else
-            g_mmap_log.readpos = rpos;
+        g_mmap_log.readpos = rpos;
     }
     else if(rlen > 0)
         rlen = -1;

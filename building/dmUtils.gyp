@@ -103,6 +103,41 @@
                 }
             ]
         ]
+      },
+      {
+        'target_name': 'loggenerator',
+        'type': 'executable',
+		'include_dirs': [
+            '../include',
+        ],        
+		'sources': [
+          '../test/loggen.c'
+        ],
+        'dependencies': [
+          'dmUtils'
+        ],
+        'conditions': [
+            [ 'OS=="win"', {
+                    'defines': [
+                        '_GNU_SOURCE', 'WIN32', 'SERVER', 'ENABLE_DMLOG=4', '_CONSOLE'
+                    ],
+                    'link_settings': {
+                        'libraries': [
+                            '-lws2_32.lib', '-lkernel32.lib', '-luser32.lib', '-lgdi32.lib'
+                        ]
+                    }
+                }, {
+                    'defines': [
+                        '_GNU_SOURCE', 'LINUX', 'SERVER', 'ENABLE_DMLOG=4', '_LINUX_'
+                    ],
+                    'link_settings': {
+                        'libraries': [
+                            '-lpthread', '-lm', '-ldl', '-lrt'
+                        ]
+                    }
+                }
+            ]
+        ]
       }
     ]
 }

@@ -30,7 +30,7 @@ void saveLog(char *buffer, int nSize)
         g_file = fileOpen(szFileName, "w");
     }
     fileWrite(g_file, buffer, nSize);
-    fileFlush(g_file);
+    //fileFlush(g_file);
     g_filelen += nSize;
     if(g_filelen >= g_max_log_file_size)
     {

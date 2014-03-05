@@ -103,7 +103,9 @@ int main(int argc, char **argv)
 
     logInit(NULL);
 
+    logInfo("====Before read logs====");
     readLogs();
+    logInfo("====After read logs====");
     while(1){
         int nWaitRes = mmapLogWaitEvent(-1);
         if(nWaitRes == EVENT_WAIT_NORMAL || nWaitRes == EVENT_WAIT_TIMEOUT)

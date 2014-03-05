@@ -277,7 +277,7 @@ int mmapLogWrite(const char *buffer, uint16_t len)
     *((short*)(mdata + hd->writepos)) = len;
     memcpy_s(mdata + hd->writepos + sizeof(uint16_t), g_mmap_log.handle->size, buffer, len);
     hd->writepos += len + sizeof(uint16_t);
-    if(hd->writepos > hd->endpos)
+    if(hd->writepos + 4096 > hd->endpos)
         hd->endpos = sizeof(MMAP_FILE_HEADER);
     mutexUnLock(g_mmap_log.mutex);
     eventSignal(g_mmap_log.event);
@@ -295,7 +295,7 @@ int mmapLogReadLine(char *buffer, uint16_t len)
     hd = (MMAP_FILE_HEADER*)g_mmap_log.handle->data;
     mdata = (char*)g_mmap_log.handle->data;
     rpos = g_mmap_log.readpos;
-    if(rpos == hd->writepos && hd->endpos == sizeof(MMAP_FILE_HEADER))
+    if(rpos == hd->writepos)
         rlen = -2;
     else
         rlen = *((uint16_t*)(mdata + rpos));
@@ -304,7 +304,7 @@ int mmapLogReadLine(char *buffer, uint16_t len)
     {
         memcpy_s(buffer, len, mdata + rpos + sizeof(uint16_t), rlen);
         rpos += (rlen + sizeof(uint16_t));
-        if(hd->endpos > hd->writepos && rpos >= hd->endpos)
+        if(rpos >= hd->endpos)
             g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
         else
             g_mmap_log.readpos = rpos;

@@ -66,3 +66,24 @@ int test_basename()
 
     return 0;
 }
+
+int test_mutex()
+{
+    LPDM_MUTEX m; 
+    m = mutexNew("DM_Test_MUTEX");
+#ifdef LINUX
+    fpid=fork();
+    if(fpid < 0)   
+        printf("error in fork!");   
+    else if(fpid == 0){
+        mutexLock(m, -1);
+        exit(0);
+    }  
+    else 
+    {
+        Sleep(100);
+        mutexLock(m, -1);
+    }
+#endif
+    return 0;
+}

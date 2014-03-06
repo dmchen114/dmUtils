@@ -115,9 +115,6 @@ unsigned long mutexLock(LPDM_MUTEX m, int timeout)
 #else
     struct timespec to;
     int ret;
-    ret = pthread_mutex_trylock(m->mutex);
-    if(ret == EOWNERDEAD)
-        pthread_mutex_consistent(m->mutex);
 
     if(timeout > 0)
     {
@@ -128,7 +125,8 @@ unsigned long mutexLock(LPDM_MUTEX m, int timeout)
         ret = pthread_mutex_trylock(m->mutex);
         if(ret == EOWNERDEAD){
             pthread_mutex_consistent(m->mutex);
-            pthread_mutex_lock(m->mutex);
+            pthread_mutex_unlock(m->mutex);
+            ret = pthread_mutex_lock(m->mutex);
         }
     }
 

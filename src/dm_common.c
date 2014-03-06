@@ -80,6 +80,7 @@ LPDM_MUTEX mutexNew(const char *name)
         if(mutexexist)
             return m;
         pthread_mutexattr_setpshared(&mutexattr, PTHREAD_PROCESS_SHARED);
+        pthread_mutexattr_setrobust(&mutexattr, PTHREAD_MUTEX_ROBUST);
     }
     else
         m->mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
@@ -113,13 +114,25 @@ unsigned long mutexLock(LPDM_MUTEX m, int timeout)
     return WaitForSingleObject(m, to);
 #else
     struct timespec to;
+    int ret;
+    ret = pthread_mutex_trylock(m->mutex);
+    if(ret == EOWNERDEAD)
+        pthread_mutex_consistent(m->mutex);
+
     if(timeout > 0)
     {
         to.tv_sec = timeout / 1000;
         to.tv_nsec = (timeout % 1000) * 1000000;
-        return pthread_mutex_timedlock(m->mutex, &to);
+        ret = pthread_mutex_timedlock(m->mutex, &to);
+    }else{
+        ret = pthread_mutex_trylock(m->mutex);
+        if(ret == EOWNERDEAD){
+            pthread_mutex_consistent(m->mutex);
+            pthread_mutex_lock(m->mutex);
+        }
     }
-    return pthread_mutex_lock(m->mutex);
+
+    return ret;
 #endif
 }
 

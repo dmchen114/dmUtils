@@ -5,6 +5,7 @@
 
 int main(int argc, char **argv)
 {
+    DECLARE_TESTCASE(mutex);
     DECLARE_TESTCASE(basename);
     DECLARE_TESTCASE(opt);
     DECLARE_TESTCASE(timer);

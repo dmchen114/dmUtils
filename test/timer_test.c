@@ -45,7 +45,7 @@ int test_timer()
 
 int test_opt()
 {
-    OK(false, "options");
+    OK(false, "Test false assert successfully");
     return 1;
 }
 
@@ -70,7 +70,9 @@ int test_basename()
 int test_mutex()
 {
     LPDM_MUTEX m; 
-    m = mutexNew("DM_Test_MUTEX");
+    int fpid;
+    int status;
+    m = mutexNew("dm_Test_MUTEX");
 #ifdef LINUX
     fpid=fork();
     if(fpid < 0)   
@@ -81,8 +83,10 @@ int test_mutex()
     }  
     else 
     {
-        Sleep(100);
+        waitpid(fpid, &status, 0);
         mutexLock(m, -1);
+        mutexUnLock(m);
+        OK(1, "pass cross process mutex deadlock test");
     }
 #endif
     return 0;

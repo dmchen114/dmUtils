@@ -1054,6 +1054,9 @@ long procJoin(LPDM_PROCESS proc, int *exitcode, int timeout)
 #else
     //Timeout is not implemented because it is a little complicated.
     ret = waitpid(proc->dwProcessId, exitcode, 0);
+    if(exitcode && WIFEXITED(*exitcode)) {
+        *exitcode = WEXITSTATUS(*exitcode);
+    }
 #endif
     free(proc);
     return ret;

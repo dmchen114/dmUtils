@@ -73,7 +73,6 @@ long process_callback_fortest(void *args)
 
     if(NULL == args){
         m = mutexNew("dm_Test_MUTEX_cross_process");
-        Sleep(1000);
         mutexLock(m, -1);
         mutexUnLock(m);
         diff = get_tick_count() > (tmbefore + 200);

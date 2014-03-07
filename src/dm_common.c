@@ -120,6 +120,8 @@ unsigned long mutexLock(LPDM_MUTEX m, int timeout)
             pthread_mutex_consistent(m->mutex);
             pthread_mutex_unlock(m->mutex);
             ret = pthread_mutex_lock(m->mutex);
+        }else if(ret == EBUSY){
+            ret = pthread_mutex_lock(m->mutex);
         }
     }
 
@@ -553,6 +555,7 @@ void logUnInit()
 #if !defined ENABLE_DMLOG
 	return;
 #else
+    g_logInited = 0;
     if(g_logType == LOG_DRIVER_FILE){
 	    if(g_hLogFile != NULL)
 	    {

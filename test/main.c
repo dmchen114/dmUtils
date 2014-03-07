@@ -7,13 +7,11 @@ int main(int argc, char **argv)
 {
     DECLARE_TESTCASE(mutex);
     DECLARE_TESTCASE(thread);
-    //DECLARE_TESTCASE(basename);
-    //DECLARE_TESTCASE(opt);
-    //DECLARE_TESTCASE(timer);
+    DECLARE_TESTCASE(basename);
+    DECLARE_TESTCASE(opt);
+    DECLARE_TESTCASE(timer);
 
-    logInit(2, NULL);
-	//P2PInit();
+	P2PInit();
 	RUN_ALL_CASES(argc, argv);
-	//P2PUnInit();
-    logUnInit();
+	P2PUnInit();
 }

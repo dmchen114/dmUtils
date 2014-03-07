@@ -72,7 +72,7 @@ int P2PInit()
 #else
 		sprintf_s(szLogFilePath, 1023, "%s_%d.log", LOG_FILENAME, getpid());
 #endif
-		logInit(szLogFilePath);
+		logInit(LOG_DRIVER_SYSLOG, szLogFilePath);
 
 		//Start to initilize the socket library
 #ifdef WIN32

@@ -1,11 +1,5 @@
 #include "dm_common.h"
 
-#if defined(ENABLE_DMLOG) && (ENABLE_DMLOG > LOG_DRIVER_MMAP)
-    #undef ENABLE_DMLOG
-    #define ENABLE_DMLOG LOG_DRIVER_SYSLOG
-#endif
-
-#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
 #ifdef LINUX
 #include <sys/mman.h>
 #endif
@@ -29,7 +23,6 @@ MMAP_LOG_FILE g_mmap_log;
 #define NAMED_EVENT_PATH        "dm_log_event"
 #define NAMED_MMAP_PATH         "dm_log_mmap"
 #define MMAP_LOG_FILE_SIZE      41943040    //40M
-#endif
 
 #if defined(ANDROID)
 static int g_logLevelNative[logLevelCount] = {ANDROID_LOG_DEBUG, ANDROID_LOG_INFO, ANDROID_LOG_WARN, ANDROID_LOG_ERROR};
@@ -272,7 +265,6 @@ void mmapClose(LPDM_MMAP m)
     free(m);
 }
 
-#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
 int mmapLogWrite(const char *buffer, uint16_t len)
 {
     MMAP_FILE_HEADER *hd;
@@ -334,7 +326,6 @@ int mmapLogWaitEvent(int timeout)
 {
     return eventWait(g_mmap_log.event, timeout);
 }
-#endif
 
 /**
  * Lock
@@ -505,44 +496,55 @@ void fileFlush(FILEDESC fd)
 ////////////////////////////////////////////////////////////
 DM_LOCK_T g_LockLog;
 int g_logLevel = -1;
+int g_logInited = 0;
+int g_logType = LOG_DRIVER_SYSLOG;
 FILE *g_hLogFile = NULL;
 
-void logInit(const char* lpszPath)
+void logInit(int logType, const char* lpszPath)
 {
 #if !defined(ENABLE_DMLOG)
 	return;
 #else
+    if(g_logInited)
+        return;
+
     g_logLevel = logDebugLevel;
+    if(logType < LOG_DRIVER_MAX)
+        g_logType = logType;
 	InitLock(&g_LockLog);
     g_hLogFile = NULL;
-#if (ENABLE_DMLOG==LOG_DRIVER_FILE)
-	g_hLogFile = fopen(lpszPath, "w+t");
-#endif
-#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
-    g_mmap_log.event = eventNew(NAMED_EVENT_PATH);
-    g_mmap_log.mutex = mutexNew(NAMED_MUTEX_PATH);
-    g_mmap_log.handle = mmapOpen(NAMED_MMAP_PATH, MMAP_LOG_FILE_SIZE);
+    g_logInited = 1;
 
-    do{
-        MMAP_FILE_HEADER *hd;
-        mutexLock(g_mmap_log.mutex, -1);
-        g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
-        hd = (MMAP_FILE_HEADER*)g_mmap_log.handle->data;
-        if(hd->magic_code != LOG_MMAP_MAGIC_CODE){
-            printf("It is the first process to create the memory map!\r\n");
-            hd->magic_code = LOG_MMAP_MAGIC_CODE;
-            hd->writepos = sizeof(MMAP_FILE_HEADER);
-            hd->endpos = sizeof(MMAP_FILE_HEADER);
-        }
-        mutexUnLock(g_mmap_log.mutex);
-    }while(0);
-#endif
-#if (ENABLE_DMLOG==LOG_DRIVER_SYSLOG)
-  #ifdef LINUX
-    openlog(NULL, LOG_CONS|LOG_PID, LOG_USER);
-  #endif
-#endif
+    if(g_logType == LOG_DRIVER_FILE)
+    {
+	    g_hLogFile = fopen(lpszPath, "w+t");
+    }
+    else if(g_logType == LOG_DRIVER_MMAP)
+    {
+        g_mmap_log.event = eventNew(NAMED_EVENT_PATH);
+        g_mmap_log.mutex = mutexNew(NAMED_MUTEX_PATH);
+        g_mmap_log.handle = mmapOpen(NAMED_MMAP_PATH, MMAP_LOG_FILE_SIZE);
 
+        do{
+            MMAP_FILE_HEADER *hd;
+            mutexLock(g_mmap_log.mutex, -1);
+            g_mmap_log.readpos = sizeof(MMAP_FILE_HEADER);
+            hd = (MMAP_FILE_HEADER*)g_mmap_log.handle->data;
+            if(hd->magic_code != LOG_MMAP_MAGIC_CODE){
+                printf("It is the first process to create the memory map!\r\n");
+                hd->magic_code = LOG_MMAP_MAGIC_CODE;
+                hd->writepos = sizeof(MMAP_FILE_HEADER);
+                hd->endpos = sizeof(MMAP_FILE_HEADER);
+            }
+            mutexUnLock(g_mmap_log.mutex);
+        }while(0);
+    }
+    else if(g_logType == LOG_DRIVER_SYSLOG)
+    {
+      #ifdef LINUX
+        openlog(NULL, LOG_CONS|LOG_PID, LOG_USER);
+      #endif
+    }
 #endif
 }
 
@@ -551,26 +553,27 @@ void logUnInit()
 #if !defined ENABLE_DMLOG
 	return;
 #else
-#if (ENABLE_DMLOG==LOG_DRIVER_FILE)
-	if(g_hLogFile != NULL)
-	{
-		fclose(g_hLogFile);
-		g_hLogFile = NULL;
-	}
-#endif
-	UnInitLock(&g_LockLog);
-#if (ENABLE_DMLOG==LOG_DRIVER_SYSLOG)
-  #ifdef LINUX
-    closelog();
-  #endif
-#endif
-
-#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
-    eventFree(g_mmap_log.event);
-    mutexFree(g_mmap_log.mutex);
-    mmapClose(g_mmap_log.handle);
-#endif
-
+    if(g_logType == LOG_DRIVER_FILE){
+	    if(g_hLogFile != NULL)
+	    {
+		    fclose(g_hLogFile);
+		    g_hLogFile = NULL;
+	    }
+    }
+    
+    if(g_logType == LOG_DRIVER_SYSLOG)
+    {
+      #ifdef LINUX
+        closelog();
+      #endif
+    }
+    if(g_logType == LOG_DRIVER_MMAP)
+    {
+        eventFree(g_mmap_log.event);
+        mutexFree(g_mmap_log.mutex);
+        mmapClose(g_mmap_log.handle);
+    }
+    UnInitLock(&g_LockLog);
 #endif
 }
 
@@ -623,38 +626,33 @@ void dmLogMessage(int level, const char* filename, int lineno, const char *forma
 	Lock(&g_LockLog);
     s_buffer[2047] = 0;
 	va_start(ap, format);
-#if(ENABLE_DMLOG == LOG_DRIVER_SYSLOG)
+    if(g_logType == LOG_DRIVER_SYSLOG)
+    {
 #ifdef WIN32
-    FORMAT_STRING();
-    OutputDebugString(s_buffer);
-#elif defined(ANDROID)
-    __android_log_vprint(g_logLevelNative[level], dmBaseName(filename), format, ap);
-#elif defined(LINUX)
-    vsyslog(g_logLevelNative[level], format, ap);
-#elif defined(__IPHONE__)
-    FORMAT_STRING();
-    printf(s_buffer);
-#endif
-#endif
-
-#if (ENABLE_DMLOG == LOG_DRIVER_CONSOLE)
-    FORMAT_STRING();
-    printf(s_buffer);
-#endif
-
-#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
-    FORMAT_STRING();
-    mmapLogWrite(s_buffer, nWritten);
-#endif
-
-#if (ENABLE_DMLOG == LOG_DRIVER_FILE)
-	if(g_hLogFile != NULL){
         FORMAT_STRING();
-        fwrite(s_buffer, sizeof(char), nWritten, g_hLogFile);
-	    fflush(g_hLogFile);
-    }
+        OutputDebugString(s_buffer);
+#elif defined(ANDROID)
+        __android_log_vprint(g_logLevelNative[level], dmBaseName(filename), format, ap);
+#elif defined(LINUX)
+        vsyslog(g_logLevelNative[level], format, ap);
+#elif defined(__IPHONE__)
+        FORMAT_STRING();
+        printf(s_buffer);
 #endif
-	va_end(ap);
+    }else if(g_logType == LOG_DRIVER_CONSOLE){
+        FORMAT_STRING();
+        printf(s_buffer);
+    }else if (g_logType == LOG_DRIVER_MMAP){
+        FORMAT_STRING();
+        mmapLogWrite(s_buffer, nWritten);
+    }else if(g_logType == LOG_DRIVER_FILE){
+	    if(g_hLogFile != NULL){
+            FORMAT_STRING();
+            fwrite(s_buffer, sizeof(char), nWritten, g_hLogFile);
+	        fflush(g_hLogFile);
+        }
+    }
+    va_end(ap);
 	UnLock(&g_LockLog);
 }
 
@@ -860,4 +858,197 @@ const char* dmBasename(char* path)
     if(pos)
         return pos + 1;
     return path;
+}
+
+/**
+ * Threads
+ */
+#ifdef WIN32
+DWORD WINAPI WndThreadProcCommon(LPVOID lpParameter)
+{
+    LPDM_THREAD pThread = (LPDM_THREAD)lpParameter;
+    return pThread->cb(pThread->userdata);
+}
+
+#else
+void* LinuxThreadProc(void *args)
+{
+    LPDM_THREAD pThread = (LPDM_THREAD)args;
+    return (void*)pThread->cb(pThread->userdata);
+}
+#endif
+
+LPDM_THREAD thrNew(DM_THREAD_CALLBACK cb, void *userdata)
+{
+    LPDM_THREAD pThread = (LPDM_THREAD)malloc(sizeof(DM_THREAD));
+    pThread->cb = cb;
+    pThread->userdata = userdata;
+
+#if defined(WIN32)
+    pThread->hThread = CreateThread(NULL, 0, WndThreadProcCommon, pThread, 0, &pThread->dwThreadId);
+#else
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    if(pthread_create(&pThread->hThread, &attr, LinuxThreadProc, pThread) != 0)
+	{
+        free(pThread);
+		return NULL;
+	}
+#endif
+    return pThread;
+}
+
+long thrJoin(LPDM_THREAD thr, int *exitcode, int timeout)
+{
+    long dwRes = 0;
+#ifdef WIN32
+    int to = timeout > 0 ? timeout : INFINITE;
+    dwRes = WaitForSingleObject(thr->hThread, to);
+    if(dwRes != WAIT_TIMEOUT && exitcode)
+    {
+        DWORD dwExitCode = 0;
+        GetExitCodeThread(thr->hThread, &dwExitCode);
+        *exitcode = (int)dwExitCode;
+        logInfo("Catched thread %d exited with code:%d", thr->dwThreadId, *exitcode);
+    }
+    else
+        logInfo("Catched Thread %d exited.", thr->dwThreadId);
+#else
+    struct timespec to;
+    int ret;
+
+    if(timeout > 0)
+    {
+        to.tv_sec = timeout / 1000;
+        to.tv_nsec = (timeout % 1000) * 1000000;
+        dwRes = pthread_tryjoin_np(thr->hThread, exitcode, &to);
+    }else{
+    	pthread_join(thr->hThread, exitcode);
+    }
+    logInfo("Catched Thread %d exited.", thr->hThread);
+#endif
+    free(thr);
+    return dwRes;
+}
+
+#if _WIN32_WINNT >= 0x0600
+#include <winnt.h>
+#include <process.h>
+typedef struct _CLIENT_ID {
+	PVOID UniqueProcess;
+	PVOID UniqueThread;
+} CLIENT_ID, *PCLIENT_ID;
+
+typedef struct _SECTION_IMAGE_INFORMATION {
+	PVOID EntryPoint;
+	ULONG StackZeroBits;
+	ULONG StackReserved;
+	ULONG StackCommit;
+	ULONG ImageSubsystem;
+	WORD SubSystemVersionLow;
+	WORD SubSystemVersionHigh;
+	ULONG Unknown1;
+	ULONG ImageCharacteristics;
+	ULONG ImageMachineType;
+	ULONG Unknown2[3];
+} SECTION_IMAGE_INFORMATION, *PSECTION_IMAGE_INFORMATION;
+
+typedef struct _RTL_USER_PROCESS_INFORMATION {
+	ULONG uSize;
+	HANDLE hProcess;
+	HANDLE hThread;
+	CLIENT_ID dwClientId;
+	SECTION_IMAGE_INFORMATION ImageInformation;
+} RTL_USER_PROCESS_INFORMATION, *PRTL_USER_PROCESS_INFORMATION;
+
+#define RTL_CLONE_PROCESS_FLAGS_CREATE_SUSPENDED	0x00000001
+#define RTL_CLONE_PROCESS_FLAGS_INHERIT_HANDLES		0x00000002
+#define RTL_CLONE_PROCESS_FLAGS_NO_SYNCHRONIZE		0x00000004
+
+#define RTL_CLONE_PARENT				0
+#define RTL_CLONE_CHILD					297
+
+typedef NTSTATUS (WINAPI *RtlCloneUserProcess_f)(ULONG, PSECURITY_DESCRIPTOR,
+	PSECURITY_DESCRIPTOR, HANDLE, PRTL_USER_PROCESS_INFORMATION);
+
+#endif
+
+LPDM_PROCESS procFork(DM_THREAD_CALLBACK cb, void *userdata)
+{
+    LPDM_PROCESS proc = (LPDM_PROCESS)malloc(sizeof(DM_PROCESS));
+    proc->cb = cb;
+    proc->userdata = userdata;
+
+#ifdef WIN32
+#if _WIN32_WINNT >= 0x0600
+    do{
+        HMODULE hModule;
+	    RtlCloneUserProcess_f cloneFunc;
+	    RTL_USER_PROCESS_INFORMATION processInfo;
+	    NTSTATUS result;
+
+        proc->dwProcessId = 0;
+	    hModule = GetModuleHandleA("ntdll.dll");
+	    if (!hModule)
+		    break;
+
+	    cloneFunc = (RtlCloneUserProcess_f)GetProcAddress(hModule, "RtlCloneUserProcess");
+	    if (cloneFunc == NULL)
+		    break;
+
+	    result = cloneFunc(RTL_CLONE_PROCESS_FLAGS_CREATE_SUSPENDED | RTL_CLONE_PROCESS_FLAGS_INHERIT_HANDLES, 
+            NULL, NULL, NULL, &processInfo);
+
+	    if(result == RTL_CLONE_PARENT)
+	    {
+            proc->dwProcessId = GetProcessId(processInfo.hProcess);
+            ResumeThread(processInfo.hThread);
+            proc->hProcess = processInfo.hProcess;
+            proc->hThread = processInfo.hThread;
+	    }
+	    else if (result == RTL_CLONE_CHILD)
+	    {
+            long exitcode = proc->cb(proc->userdata);
+            exit(exitcode);
+	    }
+    }while(0);
+
+    if(proc->dwProcessId == 0)
+    {
+        free(proc);
+        proc = NULL;
+    }
+#endif
+#else
+    proc->dwProcessId = fork();
+    if(proc->dwProcessId == 0){
+        int ret = (int)proc->cb(proc->userdata);
+        exit(ret);
+    }
+#endif
+    return proc;
+}
+
+long procJoin(LPDM_PROCESS proc, int *exitcode, int timeout)
+{
+    long ret = 0;
+
+#ifdef WIN32
+    int to = timeout > 0 ? timeout : INFINITE;
+    DWORD dwRes = WaitForSingleObject(proc->hProcess, to);
+    if(dwRes != WAIT_TIMEOUT && exitcode)
+    {
+        DWORD dwExitCode = 0;
+        GetExitCodeProcess(proc->hProcess, &dwExitCode);
+        *exitcode = (int)dwExitCode;
+        logInfo("Catched process %d exited with code:%d", proc->dwProcessId, *exitcode);
+    }
+    else
+        logInfo("Catched process %d exited.", proc->dwProcessId);
+#else
+    //Timeout is not implemented because it is a little complicated.
+    ret = waitpid(proc->dwProcessId, exitcode, 0);
+#endif
+    free(proc);
+    return ret;
 }

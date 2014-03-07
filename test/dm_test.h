@@ -30,7 +30,7 @@ void colorPrintf(int color, const char* s);
 
 
 #define RUN_ALL_CASES dmRunTests
-#define OK(c, d)    do {dmAssert(c, d, __FILE__, __LINE__); if(!c) return 1; } while(0);
+#define OK(c, d)    do {dmAssert((c), (d), __FILE__, __LINE__); if(!(c)) return 1; } while(0);
 #ifdef __cplusplus
 }
 #endif

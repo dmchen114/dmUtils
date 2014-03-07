@@ -22,7 +22,7 @@
         'conditions': [
             [ 'OS=="win"', {
                     'defines': [
-                        '_GNU_SOURCE', 'WIN32', 'SERVER', 'ENABLE_DMLOG=4', '_CONSOLE'
+                        '_GNU_SOURCE', 'WIN32', 'SERVER', 'ENABLE_DMLOG=1', '_CONSOLE'
                     ],
                 }, {
                     'defines': [

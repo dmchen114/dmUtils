@@ -22,13 +22,12 @@ int test_timer()
 	long testl;
 	NTP_TIME t1, t2;
 
-	P2PInit();
 	getUTCTime(&t1);
 	Sleep(50);
 	getUTCTime(&t2);
 	logInfo("ref = %lu, val=%lu", 0xFFFFFFFF / 20, t2.fractions - t1.fractions); 
 	testl = (unsigned long)(0xFFFFFFFFUL / 20) - t2.fractions + t1.fractions;
-	assert(abs(testl) < 0x100000UL);
+	assert(abs(testl) < 0xFFFFFFFFUL/100);
 	timer_id = RegisterTimer(1 * TEST_TIME_UNIT, on_test_timer, &timer_id, 1);
 	Sleep(6 * TEST_TIME_UNIT);
 	CancelTimer(timer_id);
@@ -37,7 +36,6 @@ int test_timer()
 	Sleep(6 * TEST_TIME_UNIT);
 	CancelTimer(timer_id);
 
-	P2PUnInit();
 	OK(true, "test timer");
 
     return 0;
@@ -67,27 +65,78 @@ int test_basename()
     return 0;
 }
 
+long process_callback_fortest(void *args)
+{
+    LPDM_MUTEX m;
+    unsigned long tmbefore = get_tick_count();
+    bool diff;
+
+    if(NULL == args){
+        m = mutexNew("dm_Test_MUTEX_cross_process");
+        Sleep(1000);
+        mutexLock(m, -1);
+        mutexUnLock(m);
+        diff = get_tick_count() > (tmbefore + 200);
+        OK(diff , "Named Mutex across processes tested.");
+        return diff ? 10 : 0;
+    }
+    else{
+        m = mutexNew("dm_Test_MUTEX_cross_process");
+        mutexLock(m, -1);
+        return 0;
+    }
+}
+
 int test_mutex()
 {
     LPDM_MUTEX m; 
-    int fpid;
-    int status;
-    m = mutexNew("dm_Test_MUTEX");
-#ifdef LINUX
-    fpid=fork();
-    if(fpid < 0)   
-        printf("error in fork!");   
-    else if(fpid == 0){
-        mutexLock(m, -1);
-        exit(0);
-    }  
-    else 
-    {
-        waitpid(fpid, &status, 0);
-        mutexLock(m, -1);
-        mutexUnLock(m);
-        OK(1, "pass cross process mutex deadlock test");
-    }
-#endif
+    LPDM_PROCESS proc;
+    int fpid = 0;
+    int status = 0;
+    unsigned long tmbefore;
+    m = mutexNew("dm_Test_MUTEX_cross_process");
+
+    mutexLock(m, -1);
+    proc = procFork(process_callback_fortest, NULL);
+    Sleep(250);
+    mutexUnLock(m);
+    procJoin(proc, &status, -1);
+    OK(status == 10, "pass cross process mutex test");
+    proc = procFork(process_callback_fortest, (void*)123);
+    procJoin(proc, &status, -1);
+    tmbefore = get_tick_count();
+    mutexLock(m, -1);
+    mutexUnLock(m);
+    OK(get_tick_count() < tmbefore + 50 , "pass cross mutex deadlock test.");
+
+    return 0;
+}
+
+long thread_callback_fortest(void *args)
+{
+    LPDM_MUTEX m = (LPDM_MUTEX)args;
+    unsigned long tmbefore = get_tick_count();
+    bool diff;
+
+    logInfo("Log from thread for test, before lock.");
+    mutexLock(m, -1);
+    mutexUnLock(m);
+    logInfo("Log from thread for test, after lock.");
+    diff = get_tick_count() > (tmbefore + 200);
+    OK(diff , "Named Mutex across threads tested.");
+    return diff ? 1 : 0;
+}
+
+int test_thread()
+{
+    int exitcode = 0;
+    LPDM_THREAD thr;
+    LPDM_MUTEX m = mutexNew(NULL);
+    mutexLock(m, -1);
+    thr = thrNew(thread_callback_fortest, m);
+    Sleep(250);
+    mutexUnLock(m);
+    thrJoin(thr, &exitcode, -1);
+    OK(exitcode == 1, "get thread exit code test case passed.");
     return 0;
 }

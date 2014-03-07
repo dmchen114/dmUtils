@@ -101,7 +101,7 @@ int main(int argc, char **argv)
     g_max_log_file_size = parseFileSize(optargs);
     optExitOnInvalid();
 
-    logInit(NULL);
+    logInit(LOG_DRIVER_MMAP, NULL);
 
     logInfo("====Before read logs====");
     readLogs();

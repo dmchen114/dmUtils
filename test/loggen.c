@@ -3,7 +3,7 @@
 int main(int argc, char **argv)
 {
     int i = 0;
-    logInit(NULL);
+    logInit(LOG_DRIVER_MMAP, NULL);
     for(i = 0; i < 100000; i++)
     {
         Sleep(20);

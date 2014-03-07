@@ -16,6 +16,7 @@ typedef CRITICAL_SECTION DM_LOCK_T;
 typedef HANDLE LPDM_MUTEX;
 typedef HANDLE LPDM_EVENT;
 typedef HANDLE LPDM_SEMAPHORE;
+
 typedef struct {
     HANDLE map;
     void *data;
@@ -181,10 +182,44 @@ void UnLock(DM_LOCK_T* pLock);
 void UnInitLock(DM_LOCK_T* pLock);
 
 /**
- *Memory Map
+ * Memory Map
  */
 LPDM_MMAP mmapOpen(const char *path, unsigned long size);
 void mmapClose(LPDM_MMAP m);
+
+/**
+ * Threads and processes
+ */
+typedef long (*DM_THREAD_CALLBACK)(void *arg);
+typedef struct {
+#ifdef WIN32
+    HANDLE hThread;
+    DWORD dwThreadId;
+#else
+    pthread_t hThread;
+#endif
+    DM_THREAD_CALLBACK cb;
+    void *userdata;
+}DM_THREAD, *LPDM_THREAD;
+
+LPDM_THREAD thrNew(DM_THREAD_CALLBACK cb, void *userdata);
+/** timeout in milliseconds*/
+long thrJoin(LPDM_THREAD thr, int *exitcode, int timeout);
+
+typedef struct {
+#ifdef WIN32
+    HANDLE hProcess;
+    HANDLE hThread;
+    DWORD dwProcessId;
+#else
+    pid_t dwProcessId;
+#endif
+    DM_THREAD_CALLBACK cb;
+    void *userdata;
+}DM_PROCESS, *LPDM_PROCESS;
+
+LPDM_PROCESS procFork(DM_THREAD_CALLBACK cb, void *userdata);
+long procJoin(LPDM_PROCESS proc, int *exitcode, int timeout);
 
 /**
  * File IO
@@ -199,13 +234,8 @@ size_t fileGetSize(FILEDESC fd);
 /**
  * Logs
  */
-void logInit(const char* lpszPath);
-void logUnInit();
-void logEnableLevel(int level);
-void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...);
 /**
- * DMLog enables SYSLOG,CONSOLE,FILE, MMAP log drivers, you can select them with MACRO definition, 
- * for example, -DENABLE_DMLOG=2
+ * DMLog enables SYSLOG,CONSOLE,FILE, MMAP log drivers, you can select them when initialize, 
  * The behavior of different drivers is defined:
  *   - SYSLOG(1): 
  *       Windows> we use OutputDebugString, so you can use DebugView/Visual Studio to view.
@@ -223,10 +253,19 @@ void dmLogMessage(int level, const char* filename, int lineno, const char *forma
  *              available for CI to capture the logs.
  */
 
-#define LOG_DRIVER_SYSLOG   1
-#define LOG_DRIVER_CONSOLE  2
-#define LOG_DRIVER_FILE     3
-#define LOG_DRIVER_MMAP     4
+enum{
+    LOG_DRIVER_SYSLOG = 1,
+    LOG_DRIVER_CONSOLE = 2,
+    LOG_DRIVER_FILE = 3,
+    LOG_DRIVER_MMAP =4,
+    LOG_DRIVER_MAX = 5
+};
+
+void logInit(int logType, const char* lpszPath);
+void logUnInit();
+void logEnableLevel(int level);
+void dmLogMessage(int level, const char* filename, int lineno, const char *format, ...);
+
 enum
 {
     logDebugLevel,
@@ -260,11 +299,9 @@ enum
 		#define logError(...) 
 #endif
 
-#if (ENABLE_DMLOG == LOG_DRIVER_MMAP)
 int mmapLogWrite(const char *buffer, uint16_t len);
 int mmapLogReadLine(char *buffer, uint16_t len);
 int mmapLogWaitEvent(int timeout);
-#endif
 
 /*
  * Command line functions

@@ -916,15 +916,18 @@ long thrJoin(LPDM_THREAD thr, int *exitcode, int timeout)
 #else
     struct timespec to;
     int ret;
+    void *pExitPointer;
 
     if(timeout > 0)
     {
         to.tv_sec = timeout / 1000;
         to.tv_nsec = (timeout % 1000) * 1000000;
-        dwRes = pthread_tryjoin_np(thr->hThread, exitcode, &to);
+        dwRes = pthread_timedjoin_np(thr->hThread, &pExitPointer, &to);
     }else{
-    	pthread_join(thr->hThread, exitcode);
+    	pthread_join(thr->hThread, &pExitPointer);
     }
+    if(exitcode)
+        *exitcode = (int)pExitPointer;
     logInfo("Catched Thread %d exited.", thr->hThread);
 #endif
     free(thr);

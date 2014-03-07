@@ -93,8 +93,8 @@ int test_mutex()
     int fpid = 0;
     int status = 0;
     unsigned long tmbefore;
-    m = mutexNew("dm_Test_MUTEX_cross_process");
 
+    m = mutexNew("dm_Test_MUTEX_cross_process");
     mutexLock(m, -1);
     proc = procFork(process_callback_fortest, NULL);
     Sleep(250);

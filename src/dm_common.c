@@ -1002,7 +1002,7 @@ LPDM_PROCESS procFork(DM_THREAD_CALLBACK cb, void *userdata)
 	    if (cloneFunc == NULL)
 		    break;
 
-	    result = cloneFunc(RTL_CLONE_PROCESS_FLAGS_CREATE_SUSPENDED | RTL_CLONE_PROCESS_FLAGS_INHERIT_HANDLES, 
+	    result = cloneFunc(RTL_CLONE_PROCESS_FLAGS_CREATE_SUSPENDED, 
             NULL, NULL, NULL, &processInfo);
 
 	    if(result == RTL_CLONE_PARENT)
